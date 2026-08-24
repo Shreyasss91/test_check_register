@@ -1,53 +1,69 @@
-# Meter Inspection Register (Google Sheets)
+# Meter Inspection Register
 
-Digitizes the monthly meter-inspection workflow for a ~20-member team:
-everyone logs readings in a shared **month tab** (`2026-08`, `2026-09`, …),
-and the **Consolidated** tab merges all history live — no more collecting
-paper registers at month-end. Spec: [`docs/requirements.md`](docs/requirements.md).
+Digitizes the monthly meter-inspection workflow for a ~20-member team.
+Inspectors submit readings through a **mobile web form** (Apps Script Web
+App); the form writes rows into a single consolidator-owned **Google Sheet**
+— one tab per month, with a live **Consolidated** view. Spec:
+[`docs/requirements.md`](docs/requirements.md) (v2.0).
 
-## Fields captured
+## How it fits together
 
-Date · Time (12-h) · Entered By · RR Number · Reading (CKWh) + optional
-B1–B6 kWh · Reading (Pr kW) + optional B1–B6 kW · PF · Remarks.
-Meter Constant / Make / Serial No / Phases / Month auto-fill from the RR Number.
+```
+Inspector's phone ──(web form URL)──▶ Apps Script Web App ──▶ Month tab in Sheet
+     Google login = identity              validates + writes      ▲
+                                                                  └── Consolidated (live)
+Consolidator ──(Sheet directly)──▶ Master · Team · close months · exports
+```
 
-Validations: unknown RR and out-of-range PF are rejected; backwards CKWh,
-block-sum mismatch (±1 kWh), wrong-month date, duplicates and missing PF
-are flagged in the ⚠ Checks column.
+- Inspectors **never touch the Sheet** — only the form. Their login email
+  must be listed in the `Team` tab; "Entered By" comes from that mapping.
+- Works offline at spots: submissions queue on the phone and send
+  automatically when back online.
 
 ## Tabs
 
 | Tab | Purpose |
 |---|---|
 | `Master` | Meter list: RR No, constant, make, serial, phases, spot/feeder |
-| `Team` | Inspector names (feeds "Entered By" dropdown) |
-| `YYYY-MM` | One per month, shared by all inspectors, 1 000 rows ready |
-| `Consolidated` | All months stacked live, newest first, with Source Tab |
+| `Team` | Inspectors: Email + Name (login → identity) |
+| `YYYY-MM` | One per month; 1 000 rows ready; ⚠ Checks column flags issues |
+| `Consolidated` | All months stacked live, newest first |
 
 ## Setup (one time, consolidator)
 
-1. Create a new [Google Sheet](https://sheets.new).
-2. `Extensions > Apps Script` → paste all of
-   [`apps-script/Code.gs`](apps-script/Code.gs) → save.
-3. Run `setupWorkbook()` once, approve permissions.
-4. Fill `Team` (names) and `Master` (meters). The two RR-SAMPLE rows can be
-   deleted once real meters are entered.
-5. Share the file as **Editor** with all inspectors.
-6. Share → ⚙ settings → turn **off** *Editors can change permissions and
-   share*; pin the URL in the team chat (see spec §3.1 — one file only).
+1. Create a new [Google Sheet](https://sheets.new) → `Extensions > Apps Script`.
+2. Paste [`apps-script/Code.gs`](apps-script/Code.gs) into `Code.gs`.
+3. `File > New > HTML file`, name it exactly **Index**, paste
+   [`apps-script/Index.html`](apps-script/Index.html). Save.
+4. Run `setupWorkbook()` once, approve permissions.
+5. Fill `Team` (each inspector's Gmail + name) and `Master` (meters).
+   The RR-SAMPLE rows can be deleted once real meters exist.
+6. **Deploy** → *New deployment* → type **Web app**
+   - *Execute as*: **Me**
+   - *Who has access*: **Anyone with a Google account**
+   Copy the Web App URL → pin it in the team chat.
+7. Do **not** share the Sheet itself with inspectors.
+
+After any code change: *Deploy → Manage deployments → ✏ → New version*.
 
 ## Monthly routine (consolidator)
 
-- **Start of month:** menu *Meter Register > New month sheet…* → `2026-09`.
-- **During month:** inspectors append rows; ⚠ Checks column flags issues.
-- **End of month:** *Meter Register > Close month (lock)…*, then
-  `File > Download > Microsoft Excel (.xlsx)` as archive backup.
+- **Month start:** nothing required — the month tab is auto-created by the
+  first submission (or menu *Meter Register > New month sheet…*).
+- **Month end:** *Close month (lock)…* → download XLSX archive backup.
   (*Unlock month* exists for corrections.)
 
-## Field tips
+## Validation
 
-- Members share once via invite email; afterwards open the file straight
-  from the Sheets app (*Shared* list — star it ⭐), never by retyping URLs.
-- Date shortcut `Ctrl+;` · time shortcut `Ctrl+Shift+;`.
-- No network at a spot? Google Sheets mobile app works offline for this
-  file; entries sync when you're back online.
+Hard-blocked at Submit: unknown RR Number · PF outside 0–1.
+Flagged in the ⚠ Checks column: CKWh below all-history max · block-sum off
+by > ±1 kWh · wrong-month date · duplicates · missing PF.
+
+## Field tips (inspectors)
+
+- Open the pinned form URL once → browser menu → *Add to Home screen*.
+- Date/Time are pre-filled at the spot and stay editable.
+- No network? Submit anyway — it saves on the phone and sends itself later;
+  the yellow bar shows how many entries are waiting.
+- "Not authorized"? Your Gmail isn't in the Team tab yet — contact the
+  consolidator.
