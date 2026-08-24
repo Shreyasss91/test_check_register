@@ -1,2 +1,2 @@
-# test_check_resgister
-test_check_resgister
+# test_check_register
+test_check_register
