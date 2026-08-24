@@ -44,6 +44,16 @@ Rules that guarantee all ~20 members operate on the same file:
    file itself — it syncs to the same file, so there is no reason to keep
    local copies.
 
+Onboarding (one time per member):
+
+- Consolidator shares once via *Share* → member's Gmail address → Editor;
+  the invite email carries the link.
+- After the first open, the file permanently appears in the member's
+  Google Sheets / Drive app under *Shared* — one tap opens it from then
+  on; nobody types URLs repeatedly.
+- Recommended: member stars the file (⭐) for top-of-list access; optional:
+  open in phone browser → *Add to Home screen* for an app-like icon.
+
 ## 4. Workbook structure
 
 Single spreadsheet containing:

@@ -46,6 +46,8 @@ are flagged in the ⚠ Checks column.
 
 ## Field tips
 
+- Members share once via invite email; afterwards open the file straight
+  from the Sheets app (*Shared* list — star it ⭐), never by retyping URLs.
 - Date shortcut `Ctrl+;` · time shortcut `Ctrl+Shift+;`.
 - No network at a spot? Google Sheets mobile app works offline for this
   file; entries sync when you're back online.
