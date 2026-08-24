@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>Meter Inspection Register</title>
+  <style>
+    :root { --blue:#1a73e8; --bg:#f1f3f4; --card:#fff; --err:#d93025; --ok:#188038; }
+    * { box-sizing:border-box; font-family:Roboto,Arial,sans-serif; }
+    body { margin:0; background:var(--bg); color:#202124; padding-bottom:86px; }
+    header { background:var(--blue); color:#fff; padding:12px 16px; position:sticky; top:0; z-index:5;
+             display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    header h1 { font-size:16px; margin:0; flex:1; font-weight:500; }
+    .chip { background:rgba(255,255,255,.2); border-radius:14px; padding:3px 10px; font-size:12px; }
+    #net { border-radius:14px; padding:3px 10px; font-size:12px; cursor:default; }
+    .on  { background:#c6efce; color:#145a32; }
+    .off { background:#ffd7cf; color:#8b1e11; }
+    main { padding:12px; max-width:520px; margin:0 auto; }
+    .card { background:var(--card); border-radius:10px; padding:14px; margin-bottom:12px;
+            box-shadow:0 1px 2px rgba(0,0,0,.12); }
+    label { display:block; font-size:12px; color:#5f6368; margin:10px 0 4px; font-weight:500; }
+    input, textarea, select { width:100%; padding:10px; font-size:15px; border:1px solid #dadce0;
+              border-radius:6px; background:#fff; }
+    input:focus { outline:2px solid var(--blue); border-color:transparent; }
+    .row { display:flex; gap:10px; } .row > div { flex:1; }
+    .grid6 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    details { margin-top:10px; border-top:1px dashed #dadce0; padding-top:8px; }
+    summary { cursor:pointer; font-size:13px; color:var(--blue); font-weight:500; }
+    #meterInfo { display:none; margin-top:8px; font-size:13px; background:#e8f0fe;
+                 border-radius:6px; padding:8px 10px; line-height:1.5; }
+    button.submit { position:fixed; bottom:0; left:0; right:0; width:100%; border:none;
+            background:var(--blue); color:#fff; font-size:17px; padding:17px; cursor:pointer; }
+    button.submit:disabled { opacity:.6; }
+    #toast { position:fixed; top:56px; left:50%; transform:translateX(-50%); min-width:260px;
+             max-width:92vw; padding:11px 16px; border-radius:8px; display:none; z-index:20;
+             font-size:14px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+    .t-ok { background:#e6f4ea; color:var(--ok); } .t-err { background:#fce8e6; color:var(--err); }
+    .center { text-align:center; padding:40px 20px; color:#5f6368; }
+    small.req { color:var(--err); }
+    #queueBar { display:none; background:#fef7e0; color:#7a5b00; font-size:13px;
+                padding:8px 16px; text-align:center; cursor:pointer; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Meter Inspection</h1>
+  <span class="chip" id="who">…</span>
+  <span id="net" class="chip on">online</span>
+</header>
+<div id="queueBar" onclick="syncQueue()">⚠ <span id="qCount">0</span> saved offline — tap to send</div>
+
+<main id="app">
+  <div class="center" id="loading">Loading…</div>
+</main>
+
+<div id="toast"></div>
+<button class="submit" id="btn" style="display:none" onclick="onSubmit()">Submit inspection</button>
+
+<script>
+  var METERS = {}, QKEY = 'mrq_v1', submitting = false;
+
+  /* ---------- boot ---------- */
+  window.onload = function () {
+    updateNet();
+    setInterval(tick, 30000);
+    window.addEventListener('online', function(){ updateNet(); syncQueue(); });
+    window.addEventListener('offline', updateNet);
+    refreshNetBadge();
+
+    google.script.run
+      .withSuccessHandler(onBoot)
+      .withFailureHandler(failBoot)
+      .getBootstrap();
+  };
+
+  function onBoot(r) {
+    if (!r || !r.ok) {
+      document.getElementById('loading').textContent =
+        r && r.reason === 'not_authorized'
+          ? 'Not authorized. Ask the consolidator to add your Gmail to the Team tab.'
+          : ('Error: ' + ((r && r.reason) || 'unknown'));
+      return;
+    }
+    document.getElementById('who').textContent = r.user.name;
+    r.meters.forEach(function (m) { METERS[m.rr] = m; });
+
+    var dls = document.createElement('datalist'); dls.id = 'rrList';
+    r.meters.forEach(function (m) {
+      var o = document.createElement('option');
+      o.value = m.rr; o.label = m.spot ? m.spot + ' · ' + m.make : m.make;
+      dls.appendChild(o);
+    });
+    document.body.appendChild(dls);
+
+    var today = localISO(new Date());
+    var now = new Date();
+    document.getElementById('app').innerHTML =
+      '<div class="card">' +
+        '<div class="row">' +
+          '<div><label>Date</label><input type="date" id="date" value="' + today + '"></div>' +
+          '<div><label>Time</label><input type="time" id="time" value="' +
+            pad(now.getHours()) + ':' + pad(now.getMinutes()) + '"></div>' +
+        '</div>' +
+        '<label>RR Number <small class="req">*</small></label>' +
+        '<input list="rrList" id="rr" autocomplete="off" placeholder="pick or type">' +
+        '<div id="meterInfo"></div>' +
+      '</div>' +
+
+      '<div class="card">' +
+        '<label>Reading CKWh <small class="req">*</small></label>' +
+        '<input type="number" id="ckwh" step="0.01" min="0" inputmode="decimal">' +
+        '<details><summary>Block readings – B1…B6 kWh (optional)</summary><div class="grid6">' +
+          bInputs('bk', 6) + '</div></details>' +
+        '<label>Reading Pr kW <small class="req">*</small></label>' +
+        '<input type="number" id="prk" step="0.01" min="0" inputmode="decimal">' +
+        '<details><summary>Block demand – B1…B6 kW (optional)</summary><div class="grid6">' +
+          bInputs('bw', 6) + '</div></details>' +
+        '<label>PF (0–1)</label>' +
+        '<input type="number" id="pf" step="0.01" min="0" max="1" inputmode="decimal">' +
+      '</div>' +
+
+      '<div class="card"><label>Remarks (optional)</label>' +
+      '<textarea id="remarks" rows="2" maxlength="200"></textarea></div>';
+
+    document.getElementById('rr').addEventListener('change', onRR);
+    document.getElementById('btn').style.display = 'block';
+    renderQ();
+  }
+
+  function failBoot(e) {
+    document.getElementById('loading').textContent =
+      'Could not reach server' + (navigator.onLine ? '' : ' (offline)') +
+      '. Reconnect and reload.';
+  }
+
+  function bInputs(pre, n) {
+    var s = '';
+    for (var i = 1; i <= n; i++)
+      s += '<div><label>B' + i + '</label>' +
+           '<input type="number" step="0.01" min="0" inputmode="decimal" id="' + pre + i + '"></div>';
+    return s;
+  }
+
+  function onRR() {
+    var m = METERS[document.getElementById('rr').value.trim()];
+    var box = document.getElementById('meterInfo');
+    if (!m) { box.style.display = 'none'; return; }
+    box.textContent = 'Make: ' + (m.make || '—') + ' · S.No: ' + (m.serial || '—') +
+      '\nConstant: ' + (m.constant || '—') + ' · Phases: ' + (m.phases || '—') +
+      (m.spot ? '\nSpot: ' + m.spot : '');
+    box.style.whiteSpace = 'pre-line';
+    box.style.display = 'block';
+  }
+
+  /* ---------- submit ---------- */
+  function onSubmit() {
+    if (submitting) return;
+    var p = collect();
+    if (!p) return;
+
+    if (!navigator.onLine) { enqueue(p); toast('Offline — saved on phone, will send automatically', true); return; }
+
+    submitting = true; btn(true);
+    google.script.run
+      .withSuccessHandler(function (r) {
+        submitting = false; btn(false);
+        if (r && r.ok) {
+          toast('Saved ✓ row ' + r.row + ' (' + r.month + ')' +
+                (r.warnings.length ? ' ⚠ ' + r.warnings.join(' · ') : ''), !r.warnings.length);
+          resetReadings();
+        } else toast((r && r.error) || 'Failed', false);
+      })
+      .withFailureHandler(function (e) {
+        submitting = false; btn(false);
+        toast('Send failed: ' + e.message + ' — saved on phone', true);
+        enqueue(p);
+      })
+      .submitEntry(p);
+  }
+
+  function collect() {
+    var g = function (id) { return document.getElementById(id).value.trim(); };
+    var p = {
+      date: g('date'), time: g('time'),
+      rr: g('rr'), ckwh: g('ckwh'), prk: g('prk'),
+      pf: g('pf'), remarks: g('remarks'),
+      blocksKwh: [], bkw: []
+    };
+    for (var i = 1; i <= 6; i++) {
+      p.blocksKwh.push(g('bk' + i));
+      p.bkw.push(g('bw' + i));
+    }
+    if (!p.date)   return err('Date is required');
+    if (!p.time)   return err('Time is required');
+    if (!p.rr)     return err('Pick an RR Number');
+    if (p.ckwh === '') return err('CKWh reading is required');
+    if (p.prk === '')  return err('Pr kW reading is required');
+    return p;
+  }
+
+  function err(msg) { toast(msg, false); return null; }
+  function btn(d) { document.getElementById('btn').disabled = d; }
+
+  function resetReadings() {
+    ['ckwh','prk','pf','remarks'].forEach(function (id) { document.getElementById(id).value = ''; });
+    for (var i = 1; i <= 6; i++) {
+      document.getElementById('bk' + i).value = '';
+      document.getElementById('bw' + i).value = '';
+    }
+    var n = new Date();
+    document.getElementById('date').value = localISO(n);
+    document.getElementById('time').value = pad(n.getHours()) + ':' + pad(n.getMinutes());
+    document.getElementById('meterInfo').style.display = 'none';
+  }
+
+  /* ---------- offline queue ---------- */
+  function qGet() { try { return JSON.parse(localStorage.getItem(QKEY)) || []; } catch (e) { return []; } }
+  function qSet(q) { localStorage.setItem(QKEY, JSON.stringify(q)); renderQ(); }
+
+  function enqueue(p) { var q = qGet(); q.push({ at: new Date().toISOString(), p: p }); qSet(q); }
+
+  function syncQueue() {
+    if (!navigator.onLine || submitting) return;
+    var q = qGet();
+    if (!q.length) return;
+    submitting = true;
+    var item = q[0];
+    google.script.run
+      .withSuccessHandler(function (r) {
+        submitting = false;
+        if (r && r.ok) { q.shift(); qSet(q); toast('Sent 1 saved entry ✓', true); if (q.length) syncQueue(); }
+        else { qSet(q); toast((r && r.error) || 'Server rejected a saved entry', false); }
+      })
+      .withFailureHandler(function () { submitting = false; }) // still offline - retry later
+      .submitEntry(item.p);
+  }
+
+  function tick() { refreshNetBadge(); syncQueue(); }
+
+  function renderQ() {
+    var q = qGet(), bar = document.getElementById('queueBar');
+    bar.style.display = q.length ? 'block' : 'none';
+    document.getElementById('qCount').textContent = q.length;
+  }
+
+  /* ---------- misc ---------- */
+  function refreshNetBadge() {
+    var el = document.getElementById('net');
+    el.textContent = navigator.onLine ? 'online' : 'offline';
+    el.className = 'chip ' + (navigator.onLine ? 'on' : 'off');
+  }
+  function updateNet() {}
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function localISO(d) { return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+
+  var tTimer;
+  function toast(msg, isOk) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = isOk ? 't-ok' : 't-err';
+    t.style.display = 'block';
+    clearTimeout(tTimer);
+    tTimer = setTimeout(function () { t.style.display = 'none'; }, isOk ? 4000 : 7000);
+  }
+</script>
+</body>
+</html>
