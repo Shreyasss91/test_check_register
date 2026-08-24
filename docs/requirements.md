@@ -1,6 +1,6 @@
 # Requirements — Digital Meter Inspection Register
 
-Status: **v1.2 — approved for build** · 2026-08-25
+Status: **v2.0 — approved for build** · 2026-08-25
 
 ## 1. Problem
 
@@ -11,48 +11,41 @@ consolidation automatic/live. Analytics on the collected data come later.
 
 ## 2. Platform
 
-One single Google Sheets file. No custom backend, no photos, text-only entry.
+One single Google Sheets file as the data store + one **Apps Script Web App**
+(mobile-friendly form) as the only entry point for inspectors. No custom
+backend/hosting, no photos, text-only entry. Inspectors never open the Sheet;
+the consolidator lives in it.
 
 ## 3. Roles & access
 
 | Role | Count | Can do |
 |---|---|---|
-| Inspector | ~20 | Append/edit data rows in month tabs; pick RR Number, fill readings |
-| Consolidator | 1 | Full control: maintain Master & Team lists, create/close month tabs, correct anything, export, manage sharing |
+| Inspector | ~20 | Open the **web app** with their Google login, submit inspection forms (incl. while offline — queued) |
+| Consolidator | 1 | Owns Sheet & script deployment; maintains Master/Team; creates/closes months; corrects any row; exports; manages sharing |
 
-All access via personal Gmail addresses (no Workspace domain). Sheets version
-history is the audit trail. Auto-formula columns and Master are protected;
-past-month tabs are locked read-only after close (except consolidator).
+Inspectors have **no edit access to the Sheet** (viewer at most). The web app
+executes as the consolidator and writes on their behalf. All access via
+personal Gmail addresses (no Workspace domain). Sheets version history is the
+audit trail. Auto-formula columns and Master are protected; past-month tabs
+are locked read-only after close.
 
 ### 3.1 File governance — single source of truth
 
-Rules that guarantee all ~20 members operate on the same file:
+Rules that guarantee all ~20 members operate on the same system:
 
-1. Only the consolidator creates the workbook. Inspectors open it via the
-   shared link or *Shared with me* — never via "Make a copy" and never by
-   re-uploading a downloaded XLSX/CSV.
-2. Sharing settings: "Editors can change permissions and share" is OFF, so
-   membership is controlled by the consolidator alone.
-3. One canonical URL, pinned in the team chat; everyone bookmarks it.
-   If the link works, nobody searches Drive for the file.
-4. Monthly check: Drive search for the filename must return exactly one
-   result. A stray copy → merge its new rows into the real month tab,
-   delete the copy, remind its author.
-5. Authenticity test for any user: the bound *Meter Register* menu exists
-   only in the genuine file ("no menu" ⇒ you are in a copy).
-6. Offline field capture uses the mobile app's offline mode on the shared
-   file itself — it syncs to the same file, so there is no reason to keep
-   local copies.
-
-Onboarding (one time per member):
-
-- Consolidator shares once via *Share* → member's Gmail address → Editor;
-  the invite email carries the link.
-- After the first open, the file permanently appears in the member's
-  Google Sheets / Drive app under *Shared* — one tap opens it from then
-  on; nobody types URLs repeatedly.
-- Recommended: member stars the file (⭐) for top-of-list access; optional:
-  open in phone browser → *Add to Home screen* for an app-like icon.
+1. Only the consolidator creates the workbook and deploys the web app.
+   Inspectors use only the **web app URL** (pinned in team chat); they have
+   no reason to ever touch Drive/Sheets — which makes stray copies
+   practically impossible.
+2. Sharing settings: the Sheet is not shared for editing with inspectors;
+   "Editors can change permissions and share" stays OFF.
+3. One canonical web-app URL, pinned in the team chat; everyone bookmarks it
+   or adds it to their phone home screen (*Add to Home screen*).
+4. Monthly check (consolidator): Drive search for the filename returns
+   exactly one result; no editor other than the consolidator in the Share
+   dialog.
+5. Onboarding per member: add their Email to the `Team` tab → they open the
+   pinned URL → log in with that Gmail → form works. Nothing else.
 
 ## 4. Workbook structure
 
@@ -61,25 +54,25 @@ Single spreadsheet containing:
 | Tab | Purpose |
 |---|---|
 | `Master` | One row per meter: RR No, Meter Constant, Make, Serial No, Phases, Spot/Feeder |
-| `Team` | List of inspector names (drives the "Entered By" dropdown) |
-| `<Month>` e.g. `2026-08` | One tab per month — **all** inspectors append rows here during that month |
+| `Team` | Inspectors: Email + Name (login email drives "Entered By") |
+| `<Month>` e.g. `2026-08` | One tab per month — all submitted entries land here |
 | `Consolidated` | Live stack of all month tabs (all history, newest first) |
 
-Month tab lifecycle: consolidator creates the new month's tab via an
-Apps Script menu button ("New month sheet") at month start — guarantees every
-month tab has identical formulas (no drift); at month end "Close month" locks
-the tab read-only, and the consolidator downloads an XLSX backup as archive
-(an unlock option exists for corrections). Each month tab ships with 1,000
-pre-filled formula rows (expected volume < 1,000 entries/month).
+Month tab lifecycle: created at month start via the menu button ("New month
+sheet") **or automatically** by the first submission of that month (same
+template either way, so formulas never drift). At month end "Close month"
+locks the tab read-only and the consolidator downloads an XLSX backup as
+archive (an unlock option exists for corrections). Each month tab ships with
+1,000 pre-filled formula rows (expected volume < 1,000 entries/month).
 No per-person tabs anymore.
 
 ## 5. Data captured per inspection (one row)
 
 | Field | Source | Notes |
 |---|---|---|
-| Date | manual | `Ctrl+;`, dd-mm-yyyy |
-| Time | manual | `Ctrl+Shift+;`, 12-h `hh:mm am/pm` |
-| Entered By | dropdown | from `Team` tab |
+| Date | pre-filled | device date, editable; dd-mm-yyyy |
+| Time | pre-filled | device time at spot, editable; 12-h `hh:mm am/pm` |
+| Entered By | **auto** | resolved from Google login email via `Team` tab |
 | RR Number | dropdown | fed by `Master`; same meter may be recorded by multiple people |
 | Reading (CKWh) | manual | main cumulative kWh |
 | B1–B6 kWh | optional | per-block readings where applicable |
@@ -87,7 +80,7 @@ No per-person tabs anymore.
 | B1–B6 kW | optional | per-block demand |
 | PF | manual | |
 | Remarks | optional | |
-| Meter Constant / Make / Serial No / Phases | **auto** | looked up from Master via RR Number |
+| Meter Constant / Make / Serial No / Phases | **auto** | looked up from Master via RR Number (shown live in the form) |
 | Month | **auto** | derived from Date |
 | ⚠ Checks | **auto** | inline validation flags (see §6) |
 
@@ -113,23 +106,44 @@ Flagged inline (⚠ column, entry still accepted):
    cross-check visit — not flagged).
 7. PF left blank while an RR Number is present.
 
-## 7. Corrections policy (decided)
+Enforcement: hard-blocks run **server-side in the web app** on Submit
+(rejected with a message); flag-rules are written into the row's ⚠ column
+by the sheet formulas as before.
 
-Old rows may be edited directly by anyone with editor access; the version
-history records who changed what. No append-only correction protocol.
+## 7. Entry web app (Apps Script)
 
-## 8. History (decided)
+- `doGet()` serves a single mobile-first page (HTML/CSS/JS served by the
+  bound script — no external hosting).
+- On load: script verifies the visitor's email exists in `Team` (else shows
+  "not authorized"), then returns team/meter reference data for dropdowns.
+- Form behavior: Date/Time pre-filled with device now (editable); picking an
+  RR Number instantly shows Make/Serial/Constant/Phases; Submit calls
+  server → hard-block validation → append to the month tab of the entry's
+  Date (creating that month tab if absent).
+- Offline at spot: submissions are stored in the browser (localStorage
+  queue) and retried automatically when connectivity returns; queued count
+  shown in the UI. Entries keep their spot-time Date/Time.
+- Deployment: *Deploy > New deployment > Web app*, execute as **me**
+  (consolidator), access: **any user with a Google account** (authorization
+  still enforced per-Email via Team list). Every change = new version.
+
+## 8. Corrections policy
+
+Old rows are corrected only by the consolidator directly in the Sheet;
+inspectors report mistakes to the consolidator (chat). Version history
+records who changed what.
+
+## 9. History (decided)
 
 Start fresh from go-live. No back-entry of paper registers.
 
-## 9. Non-goals (v1)
+## 10. Non-goals
 
-Photos, native app, custom backend/auth, consumption/billing analytics,
-paper-register migration. Analytics explicitly deferred but the flat,
-consistent row format above is designed to make later analysis easy
-(e.g., pivot by Entered By, RR Number, month).
+Photos, GPS, signatures, native mobile app, external hosting/backend,
+billing analytics, paper-register migration. Analytics deferred but the
+flat row format keeps later pivots easy (Entered By, RR Number, month).
 
-## 10. Decision log
+## 11. Decision log
 
 | # | Decision | Rationale |
 |---|---|---|
@@ -148,7 +162,12 @@ consistent row format above is designed to make later analysis easy
 | D13 | Time in 12-hour `hh:mm am/pm` | field staff preference |
 | D14 | Readings 2 dp, PF 2 dp | agreed display convention |
 | D15 | File-governance rules (§3.1): single owner-created file, locked sharing, canonical pinned URL, monthly stray-file check | guarantees everyone works on one file |
+| D16 | Inspectors enter via **Apps Script Web App** form; Sheet is consolidator-only | prevents direct-sheet mistakes & stray copies; zero infra kept |
+| D17 | "Entered By" resolved from Google login email via Team tab | no impersonation, no typing names |
+| D18 | Inspectors get no edit access to the Sheet; corrections via consolidator | single controlled write path (the web app) |
+| D19 | Offline submissions queued in browser storage, auto-retried on reconnect | spots occasionally lack network |
+| D20 | Month tab auto-created by first submission of the month (same template as menu button) | nobody blocked if consolidator forgot |
 
-## 11. Open questions
+## 12. Open questions
 
 None — spec complete.
