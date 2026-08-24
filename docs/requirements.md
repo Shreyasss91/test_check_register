@@ -1,6 +1,6 @@
 # Requirements — Digital Meter Inspection Register
 
-Status: **v1.1 — approved for build** · 2026-08-25
+Status: **v1.2 — approved for build** · 2026-08-25
 
 ## 1. Problem
 
@@ -23,6 +23,26 @@ One single Google Sheets file. No custom backend, no photos, text-only entry.
 All access via personal Gmail addresses (no Workspace domain). Sheets version
 history is the audit trail. Auto-formula columns and Master are protected;
 past-month tabs are locked read-only after close (except consolidator).
+
+### 3.1 File governance — single source of truth
+
+Rules that guarantee all ~20 members operate on the same file:
+
+1. Only the consolidator creates the workbook. Inspectors open it via the
+   shared link or *Shared with me* — never via "Make a copy" and never by
+   re-uploading a downloaded XLSX/CSV.
+2. Sharing settings: "Editors can change permissions and share" is OFF, so
+   membership is controlled by the consolidator alone.
+3. One canonical URL, pinned in the team chat; everyone bookmarks it.
+   If the link works, nobody searches Drive for the file.
+4. Monthly check: Drive search for the filename must return exactly one
+   result. A stray copy → merge its new rows into the real month tab,
+   delete the copy, remind its author.
+5. Authenticity test for any user: the bound *Meter Register* menu exists
+   only in the genuine file ("no menu" ⇒ you are in a copy).
+6. Offline field capture uses the mobile app's offline mode on the shared
+   file itself — it syncs to the same file, so there is no reason to keep
+   local copies.
 
 ## 4. Workbook structure
 
@@ -117,6 +137,7 @@ consistent row format above is designed to make later analysis easy
 | D12 | Fold-ins F1–F5 approved: all-history monotonic check, wrong-tab guard, duplicate guard, blank-PF flag, month-end XLSX backup | cheap now, painful later |
 | D13 | Time in 12-hour `hh:mm am/pm` | field staff preference |
 | D14 | Readings 2 dp, PF 2 dp | agreed display convention |
+| D15 | File-governance rules (§3.1): single owner-created file, locked sharing, canonical pinned URL, monthly stray-file check | guarantees everyone works on one file |
 
 ## 11. Open questions
 

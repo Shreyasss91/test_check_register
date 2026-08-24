@@ -33,6 +33,8 @@ are flagged in the ⚠ Checks column.
 4. Fill `Team` (names) and `Master` (meters). The two RR-SAMPLE rows can be
    deleted once real meters are entered.
 5. Share the file as **Editor** with all inspectors.
+6. Share → ⚙ settings → turn **off** *Editors can change permissions and
+   share*; pin the URL in the team chat (see spec §3.1 — one file only).
 
 ## Monthly routine (consolidator)
 
