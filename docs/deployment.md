@@ -19,6 +19,10 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 7. Delete its default content → paste all of
    [`apps-script/Index.html`](../apps-script/Index.html).
 8. Save (`Ctrl+S`).
+   > **If the function dropdown (right of *Debug*) doesn't list
+   > `setupWorkbook`:** close the Apps Script browser tab entirely and
+   > reopen `Extensions → Apps Script` — the dropdown often needs a refresh
+   > after a big paste. Also make sure the `Code.gs` tab is the active one.
 
 ## C. Initialize the structure
 
@@ -77,6 +81,7 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 
 | Symptom | Cause / fix |
 |---|---|
+| `setupWorkbook` not in function dropdown | Stale editor after large paste — close the Apps Script tab and reopen `Extensions → Apps Script`; keep `Code.gs` as active tab |
 | "Not authorized" for a real inspector | Their Gmail missing/mistyped in `Team` tab column A (check case/spaces) |
 | Form stuck on "Loading…" | Deployment access not set to *Anyone with a Google account*, or user not logged into any Google account |
 | Changes don't appear | Forgot step 24 — old version still deployed |
