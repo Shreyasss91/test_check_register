@@ -194,7 +194,10 @@ function getBootstrap() {
   try {
     var ss = SpreadsheetApp.getActive();
     var user = currentUser_(ss);
-    if (!user) return { ok: false, reason: 'not_authorized' };
+    if (!user) {
+      var email = (Session.getActiveUser().getEmail() || '').toLowerCase();
+      return { ok: false, reason: 'not_authorized', email: email };
+    }
 
     var meters = [];
     var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 13).getDisplayValues();
@@ -226,7 +229,7 @@ function submitEntry(p) {
   try {
     var ss = SpreadsheetApp.getActive();
     var user = currentUser_(ss);
-    if (!user) return { ok: false, error: 'Not authorized. Ask the consolidator to add your email to the Team tab.' };
+    if (!user) return { ok: false, error: 'Your e-mail is not in the Team list. Ask the admin to add your e-mail to the list, or log in with an approved e-mail.' };
 
     var chk = validatePayload_(ss, p);
     if (chk.error) return { ok: false, error: chk.error };

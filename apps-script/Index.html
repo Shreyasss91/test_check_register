@@ -78,7 +78,8 @@
     if (!r || !r.ok) {
       document.getElementById('loading').textContent =
         r && r.reason === 'not_authorized'
-          ? 'Not authorized. Ask the consolidator to add your Gmail to the Team tab.'
+          ? (r.email ? 'Your e-mail ' + r.email + ' is not in the Team list. ' : 'Your e-mail is not in the Team list. ') +
+            'Ask the admin to add your e-mail to the list, or log in with an approved e-mail.'
           : ('Error: ' + ((r && r.reason) || 'unknown'));
       return;
     }

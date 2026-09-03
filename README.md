@@ -77,5 +77,5 @@ by > ±1 kWh · wrong-month date · duplicates · missing PF. All RR matching
   them at the spot if the meter differs.
 - No network? Submit anyway — it saves on the phone and sends itself later;
   the yellow bar shows how many entries are waiting.
-- "Not authorized"? Your Gmail isn't in the Team tab yet — contact the
-  consolidator.
+- "E-mail not in Team list"? Your Gmail isn't in the Team tab yet — ask
+  the admin to add it, or log in with an approved e-mail.
