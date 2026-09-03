@@ -9,6 +9,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Month-tab capacity alert** (`apps-script/Code.gs`,
+  `apps-script/Index.html`):
+  - At ≥ 90 % of the 1 000-row budget, `submitEntry` appends a
+    `capacity` note to the response; the inspector's toast shows
+    *"month tab near capacity (900/1000 rows)"* (red when critical at
+    999).
+  - The consolidator gets a **one-time email per month tab** (MailApp,
+    script-property flag prevents repeats) telling them to extend the
+    tab or close the month. Email is best-effort — a mail failure never
+    blocks the submit.
+
 - **Deployed-version stamp** (`apps-script/Code.gs`,
   `apps-script/Index.html`, `docs/deployment.md`):
   new `CONFIG.version` (starts at `v1.5.0`) is served by `getBootstrap`
