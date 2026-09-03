@@ -47,6 +47,10 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 
 After any code change: *Deploy → Manage deployments → ✏ → New version*.
 
+**Upgrading an existing workbook:** after pasting the new code, run
+`setupWorkbook` once, then menu *Meter Register > Refresh check formulas
+(all months)* — existing month tabs keep their old ⚠ formulas otherwise.
+
 ## Monthly routine (consolidator)
 
 - **Month start:** nothing required — the month tab is auto-created by the
