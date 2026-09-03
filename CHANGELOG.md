@@ -9,6 +9,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Month export menu item** (`apps-script/Code.gs`, README):
+  new *Meter Register > Export month to XLSX (Drive)…* — one-click
+  archive of any month tab. Fetches the tab via the Sheets export
+  endpoint (single `gid`), saves as
+  `Meter Register YYYY-MM (date).xlsx` into a "Meter Register Exports"
+  Drive folder (created on first use), and shows the file link.
+  Errors surface in a dialog; nothing touches the live tab.
+
 - **Meter status field** (`apps-script/Code.gs`,
   `apps-script/Index.html`, `docs/requirements.md`):
   new dropdown — OK / Defective / Seal broken / Meter stopped / Burnt /
