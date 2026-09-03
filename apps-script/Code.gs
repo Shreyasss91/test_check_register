@@ -400,6 +400,26 @@ function computeWarnings_(ss, sh, row, tabName, v, who) {
           pv[m][2].trim() === who) w.push('Duplicate entry');
     }
   }
+
+  // spot-entered details vs Master (drift) — same rule as the ⚠ formula
+  if (v.md) {
+    var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 13).getDisplayValues();
+    var mrow = null;
+    var rrN = normalizeKey_(v.rr);
+    for (var q = 0; q < mv.length; q++) {
+      if (normalizeKey_(mv[q][0]) === rrN) { mrow = mv[q]; break; }
+    }
+    if (mrow) {
+      // Master: G constant, H make, I serial, J phases, K DTC, L feeder, M location
+      var masterMd = { constant: mrow[6], make: mrow[7], serial: mrow[8],
+        phases: mrow[9], dtc: mrow[10], feeder: mrow[11], location: mrow[12] };
+      var diffs = [];
+      ['constant', 'make', 'serial', 'phases', 'dtc', 'feeder', 'location'].forEach(function (fld) {
+        if (v.md[fld] && String(masterMd[fld] || '').trim() !== v.md[fld]) diffs.push(fld);
+      });
+      if (diffs.length) w.push('Spot details differ from Master (' + diffs.join(', ') + ') - update Master?');
+    }
+  }
   return w;
 }
 
@@ -487,16 +507,21 @@ function addValidations_(sh, n) {
   sh.getRange(2, 1, n, 1).setDataValidation(dateRule);
 }
 
-/* U..Y auto lookups · Z ⚠ checks · AA hidden normalized RR key.
+/* U..Y auto lookups · Z ⚠ checks · AA hidden normalized RR key · AB..AH spot details.
    All sheet-side RR comparisons (master lookup, unknown-RR, history-max,
    duplicate) go through the normalized key (LOWER + all spaces removed),
    matching the server-side normalizeKey_() — so hand-edited or legacy rows
-   with variant casing/spacing are checked identically. */
+   with variant casing/spacing are checked identically. The drift check
+   flags Spot-* fields that disagree with the Master mirror (_Keys). */
 function autoFormulas_(n, tab) {
   var f = [];
   for (var i = 0; i < n; i++) {
     var r = i + 2;
     var k = '$AA' + r; // normalized key
+    var pair = function (spot, keyCol) {
+      return 'IF(AND(' + spot + '<>"",' + spot + '<>IFERROR(VLOOKUP(' + k +
+        ',_Keys!$A:$H,' + keyCol + ',FALSE),"~none~")),"Spot≠Master ","")';
+    };
     f.push([
       '=IF(' + k + '="","",IFERROR(VLOOKUP(' + k + ',_Keys!$A:$E,2,FALSE),""))',
       '=IF(' + k + '="","",IFERROR(VLOOKUP(' + k + ',_Keys!$A:$E,3,FALSE),""))',
@@ -509,7 +534,14 @@ function autoFormulas_(n, tab) {
         'IF($S' + r + '="","",IF(OR($S' + r + '<0,$S' + r + '>1),"PF out of range ",""))&' +
         'IF($E' + r + '="","",IF(IFERROR(MAXIFS(Consolidated!$E:$E,Consolidated!$Z:$Z,' + k + '),0)>$E' + r + ',"CKWh below history ",""))&' +
         'IF(AND($D' + r + '<>"",$A' + r + '<>""),IF(TEXT($A' + r + ',"yyyy-mm")<>"' + tab + '","Date not in this month ",""),"")&' +
-        'IF($D' + r + '="","",IF(COUNTIFS($AA$2:$AA,' + k + ',$A$2:$A,$A' + r + ',$C$2:$C,$C' + r + ')>1,"Duplicate entry ",""))' +
+        'IF($D' + r + '="","",IF(COUNTIFS($AA$2:$AA,' + k + ',$A$2:$A,$A' + r + ',$C$2:$C,$C' + r + ')>1,"Duplicate entry ",""))&' +
+        pair('$AB' + r, 2) + '&' +
+        pair('$AC' + r, 3) + '&' +
+        pair('$AD' + r, 4) + '&' +
+        pair('$AE' + r, 5) + '&' +
+        pair('$AF' + r, 6) + '&' +
+        pair('$AG' + r, 7) + '&' +
+        pair('$AH' + r, 8) +
       ')',
       '=IF($D' + r + '="","",LOWER(SUBSTITUTE($D' + r + '," ","")))'
     ]);
@@ -518,18 +550,23 @@ function autoFormulas_(n, tab) {
 }
 
 /* hidden helper tab: live mirror of Master — A = normalized RR key,
-   B..E = Meter Constant / Make / Serial No / Phases. Month tabs look up
-   through here so normalization is computed once, not per cell. */
+   B..E = Meter Constant / Make / Serial No / Phases, F..H = DTC / Feeder /
+   Location. Month tabs look up through here so normalization is computed
+   once, not per cell. */
 function refreshKeys_(ss) {
   var sh = ss.getSheetByName('_Keys') || ss.insertSheet('_Keys');
   var last = CONFIG.maxMasterRows + 1;
-  sh.getRange(1, 1, 1, 5).setValues([['RR Key', 'Meter Constant', 'Meter Make', 'Meter Serial No', 'Phases']]);
+  sh.getRange(1, 1, 1, 8).setValues([['RR Key', 'Meter Constant', 'Meter Make',
+    'Meter Serial No', 'Phases', 'DTC', 'Feeder', 'Location']]);
   sh.getRange('A2').setFormula('=ARRAYFORMULA(IF(Master!A2:A' + last + '="","",LOWER(SUBSTITUTE(Master!A2:A' + last + '," ",""))))');
   sh.getRange('B2').setFormula('=ARRAYFORMULA(IF(Master!G2:G' + last + '="","",Master!G2:G' + last + '))');
   sh.getRange('C2').setFormula('=ARRAYFORMULA(IF(Master!H2:H' + last + '="","",Master!H2:H' + last + '))');
   sh.getRange('D2').setFormula('=ARRAYFORMULA(IF(Master!I2:I' + last + '="","",Master!I2:I' + last + '))');
   sh.getRange('E2').setFormula('=ARRAYFORMULA(IF(Master!J2:J' + last + '="","",Master!J2:J' + last + '))');
-  styleHeader_(sh, 5);
+  sh.getRange('F2').setFormula('=ARRAYFORMULA(IF(Master!K2:K' + last + '="","",Master!K2:K' + last + '))');
+  sh.getRange('G2').setFormula('=ARRAYFORMULA(IF(Master!L2:L' + last + '="","",Master!L2:L' + last + '))');
+  sh.getRange('H2').setFormula('=ARRAYFORMULA(IF(Master!M2:M' + last + '="","",Master!M2:M' + last + '))');
+  styleHeader_(sh, 8);
   sh.setFrozenRows(1);
   protectStrict_(sh.protect(), 'Auto-generated key mirror - do not edit');
   sh.hideSheet();
