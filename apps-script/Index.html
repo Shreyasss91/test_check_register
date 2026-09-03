@@ -182,22 +182,28 @@
     var p = collect();
     if (!p) return;
 
-    if (!navigator.onLine) { enqueue(p); toast('Offline — saved on phone, will send automatically', true); return; }
+    if (!navigator.onLine) {
+      enqueue(p);
+      toast('Saved on phone ✓ will send automatically — form cleared for next entry', true);
+      resetReadings();
+      return;
+    }
 
     submitting = true; btn(true);
     google.script.run
       .withSuccessHandler(function (r) {
         submitting = false; btn(false);
         if (r && r.ok) {
-          toast('Saved ✓ row ' + r.row + ' (' + r.month + ')' +
+          toast('Saved ✓ row ' + r.row + ' (' + r.month + ') — form cleared for next entry' +
                 (r.warnings.length ? ' ⚠ ' + r.warnings.join(' · ') : ''), !r.warnings.length);
           resetReadings();
         } else toast((r && r.error) || 'Failed', false);
       })
       .withFailureHandler(function (e) {
         submitting = false; btn(false);
-        toast('Send failed: ' + e.message + ' — saved on phone', true);
+        toast('Send failed: ' + e.message + ' — saved on phone, form cleared', true);
         enqueue(p);
+        resetReadings();
       })
       .submitEntry(p);
   }
@@ -225,6 +231,7 @@
   function err(msg) { toast(msg, false); return null; }
   function btn(d) { document.getElementById('btn').disabled = d; }
 
+  // clears every input for the next inspection; Date/Time re-prefilled to now
   function resetReadings() {
     ['ckwh','prk','pf','remarks','rr','acct'].forEach(function (id) { document.getElementById(id).value = ''; });
     for (var i = 1; i <= 6; i++) {
