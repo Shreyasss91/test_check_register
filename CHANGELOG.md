@@ -9,6 +9,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Spot-vs-Master drift flag** (`apps-script/Code.gs`):
+  - `_Keys` mirror extended to 8 columns (adds DTC / Feeder / Location
+    from Master K–M) so all seven spot-entered fields have a Master
+    counterpart to compare against.
+  - ⚠-Checks formula gains a per-field drift test: any filled Spot-*
+    column (AB..AH) that disagrees with `_Keys` flags **"Spot≠Master"** —
+    stale Master data now surfaces automatically on the row itself.
+  - `computeWarnings_` mirrors the same rule server-side (normalized RR
+    row lookup, field-by-field diff) so the inspector sees
+    *"Spot details differ from Master (make, dtc)"* in the submit toast
+    and can report it immediately.
+
 - **Clearer not-authorized message with the login e-mail**
   (`apps-script/Code.gs`, `apps-script/Index.html`, README):
   - `getBootstrap` now returns the visitor's login e-mail alongside
