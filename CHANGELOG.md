@@ -9,6 +9,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Master schema expanded — 14 columns** (`apps-script/Code.gs`,
+  `apps-script/Index.html`, docs):
+  - New columns after RR Number: **Account ID, MRID, MD DAY, SF, Name**.
+  - **Spot / Feeder** split into three columns: **DTC, Feeder, Location**.
+    Final layout: RR Number · Account ID · MRID · MD DAY · SF · Name ·
+    Meter Constant · Meter Make · Meter Serial No · Phases · DTC ·
+    Feeder · Location · Notes.
+  - `getBootstrap()` reads Master A–M and sends the new fields
+    (`accountId`, `mrid`, `mdDay`, `sf`, `name`, `dtc`, `feeder`;
+    Location served via `spot`) to the form.
+  - Month-tab auto-lookup formulas re-indexed: Constant/Make/Serial/Phases
+    are now Master columns G–J (VLOOKUP indices 7–10).
+  - Form: meter-info card shows Name, Account, MRID, MD DAY, SF and a
+    DTC/Feeder/Location line; RR datalist labels now use consumer
+    Name instead of spot.
+  - README, `docs/requirements.md` §4, `docs/deployment.md` step 13
+    updated to the new layout.
+  - Migration note: existing workbooks keep the old 7-column Master —
+    re-run `setupWorkbook` (or the erasing *Rebuild* menu) after pasting
+    the new code, then refill Master.
+
 - **RR hard-block is now case-insensitive** (`apps-script/Code.gs`):
   - `validatePayload_` matches the submitted RR Number against `Master!A`
     case-insensitively; the stored row uses Master's canonical casing, so
@@ -21,6 +42,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     Make/Serial/Constant/Phases.
   - Not yet aligned: the ⚠-Checks **sheet formulas** (COUNTIFS/MAXIFS in
     `autoFormulas_`) remain case-sensitive.
+
+  *(Shipped in commit `cd46be5`.)*
 
 ## [1.0.0] — 2026-08-25
 
