@@ -9,6 +9,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Meter status field** (`apps-script/Code.gs`,
+  `apps-script/Index.html`, `docs/requirements.md`):
+  new dropdown — OK / Defective / Seal broken / Meter stopped / Burnt /
+  Not accessible — replacing free-text cramming in Remarks. Defaults to
+  OK; stored in month-tab column U; the value list comes from
+  `CONFIG.meterStatuses` via `getBootstrap` (server-validated on
+  submit).
+  - **Schema shift** (column layout only, no data loss on upgrade):
+    Meter Status is column U; Master lookups move V..Z, ⚠ checks AA,
+    RR key AB, spot details AC..AI; Consolidated stacks A..Z + AB..AI +
+    Source Tab (35 cols).
+  - Month-tab U gets a value-list data validation; existing tabs are
+    upgraded via *Refresh check formulas (all months)*.
+
 - **Master health-check menu item** (`apps-script/Code.gs`, README):
   new *Meter Register > Master health check…* audits the Master tab and
   reports what the form silently tolerates today:
