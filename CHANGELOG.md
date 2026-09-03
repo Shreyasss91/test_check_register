@@ -9,6 +9,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Offline-queue poison-pill fix** (`apps-script/Index.html`):
+  a server-rejected head entry (e.g. unknown RR after a Master cleanup)
+  used to halt `syncQueue` forever, stranding every entry behind it.
+  - Rejected entries are now **parked in a separate failed list**
+    (`localStorage: mrq_failed_v1`) with the server's reason; the live
+    queue drains past them automatically.
+  - Yellow bar shows both counts ("2+1 held") and a rejected note
+    ("N rejected — tap to retry"); tapping the bar re-queues held
+    entries for one more round (fix the cause first, e.g. RR added back
+    to Master).
+
 - **Spot-vs-Master drift flag** (`apps-script/Code.gs`):
   - `_Keys` mirror extended to 8 columns (adds DTC / Feeder / Location
     from Master K–M) so all seven spot-entered fields have a Master
