@@ -9,6 +9,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Weekly digest email to the consolidator**
+  (`apps-script/Code.gs`, README, `docs/deployment.md`):
+  - `sendWeeklyDigest()` composes and mails a Monday summary:
+    entries in the last 7 days (total + per inspector), all ⚠-flagged
+    rows with their flags (month + row + RR + inspector, capped at 30),
+    and month-tab capacity (listed at ≥ 70 % used).
+  - *Install weekly digest trigger (Mon 8am)* creates the time-based
+    trigger (idempotent — removes previous digest triggers first);
+    *Send weekly digest now (test)* sends one immediately. Menu
+    install is one-time per deployment; troubleshooting row added to
+    the deployment guide.
+
 - **Analytics starter tab** (`apps-script/Code.gs`, README,
   `docs/requirements.md`):
   new `Analytics` tab — live QUERY pivots over `Consolidated`, no
