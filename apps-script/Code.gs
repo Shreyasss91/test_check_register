@@ -46,9 +46,10 @@ var CONFIG = {
     'Date', 'Time', 'Entered By', 'RR Number', 'Reading (CKWh)',
     'B1 kWh', 'B2 kWh', 'B3 kWh', 'B4 kWh', 'B5 kWh', 'B6 kWh',
     'Reading (Pr kW)', 'B1 kW', 'B2 kW', 'B3 kW', 'B4 kW', 'B5 kW', 'B6 kW',
-    'PF', 'Remarks',
+    'PF', 'Meter Status', 'Remarks',
     'Meter Constant', 'Meter Make', 'Meter Serial No', 'Phases', 'Month'
   ],
+  meterStatuses: ['OK', 'Defective', 'Seal broken', 'Meter stopped', 'Burnt', 'Not accessible'],
   // spot-entered meter details (optional, from the form's collapsible section)
   spotHeaders: [
     'Spot Constant', 'Spot Make', 'Spot Serial No', 'Spot Phases',
@@ -148,14 +149,15 @@ function refreshConsolidatedMenu() {
   SpreadsheetApp.getUi().alert('Consolidated refreshed.');
 }
 
-// rewrites normalized-check formulas + spot columns on every month tab (incl. old ones)
+// rewrites normalized-check formulas + spot headers on every month tab (incl. old ones)
 function refreshCheckFormulas() {
   var ss = SpreadsheetApp.getActive();
   var months = monthSheets_(ss);
   months.forEach(function (name) {
     var sh = ss.getSheetByName(name);
-    sh.getRange(1, 27, 1, CONFIG.spotHeaders.length + 1).setValues([['RR Key'].concat(CONFIG.spotHeaders)]);
-    sh.getRange(2, 21, CONFIG.prefillRows, 7).setFormulas(autoFormulas_(CONFIG.prefillRows, name));
+    sh.getRange(1, 27, 1, 2).setValues([['\u26A0 Checks', 'RR Key']]);
+    sh.getRange(1, 29, 1, CONFIG.spotHeaders.length).setValues([CONFIG.spotHeaders]);
+    sh.getRange(2, 22, CONFIG.prefillRows, 7).setFormulas(autoFormulas_(CONFIG.prefillRows, name));
   });
   SpreadsheetApp.getUi().alert('Check formulas refreshed on ' + months.length + ' month tab(s).');
 }
@@ -286,6 +288,7 @@ function getBootstrap() {
       user: user,
       version: CONFIG.version,
       currentMonth: Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM'),
+      meterStatuses: CONFIG.meterStatuses,
       meters: meters
     };
   } catch (err) {
@@ -320,15 +323,15 @@ function submitEntry(p) {
       v.date, v.time, user.name, v.rr, v.ckwh,
       v.b[0], v.b[1], v.b[2], v.b[3], v.b[4], v.b[5],
       v.prk, v.bw[0], v.bw[1], v.bw[2], v.bw[3], v.bw[4], v.bw[5],
-      v.pf, v.remarks
+      v.pf, v.status || 'OK', v.remarks
     ]];
-    sh.getRange(row, 1, 1, 20).setValues(out);
+    sh.getRange(row, 1, 1, 21).setValues(out);
     if (v.md) {
       var spot = [[
         v.md.constant, v.md.make, v.md.serial, v.md.phases,
         v.md.dtc, v.md.feeder, v.md.location
       ]];
-      sh.getRange(row, 28, 1, 7).setValues(spot);
+      sh.getRange(row, 29, 1, 7).setValues(spot);
     }
     SpreadsheetApp.flush();
 
@@ -401,6 +404,12 @@ function validatePayload_(ss, p) {
   var remarks = String(p.remarks || '').trim();
   if (remarks.length > 200) return { error: 'Remarks too long (max 200 chars).' };
 
+  // meter status: known value or blank (defaults to OK on write)
+  var status = String(p.status || '').trim();
+  if (status && CONFIG.meterStatuses.indexOf(status) === -1) {
+    return { error: 'Unknown meter status "' + status + '".' };
+  }
+
   // optional spot-entered meter details (collapsible form section)
   var mdIn = (p && typeof p.meterDetails === 'object' && p.meterDetails) || {};
   var md = null;
@@ -454,7 +463,7 @@ function validatePayload_(ss, p) {
     rr = hitAC.rr;
   }
 
-  return { values: { date: d, time: time, rr: rr, ckwh: ckwh, prk: prk, b: b, bw: bw, pf: pf, remarks: remarks, md: md } };
+  return { values: { date: d, time: time, rr: rr, ckwh: ckwh, prk: prk, b: b, bw: bw, pf: pf, status: status, remarks: remarks, md: md } };
 }
 
 // mirrors spec §6 flag rules for immediate feedback (sheet formulas re-check anyway)
@@ -550,11 +559,11 @@ function monthSheets_(ss) {
 function buildMonthSheet_(ss, name) {
   var sh = resetSheet_(ss, name);
   var n = CONFIG.prefillRows;
-  var cols = CONFIG.registerHeaders.length;
-  // A..T manual · U..Y master lookups · Z checks · AA key · AB..AH spot details
-  sh.getRange(1, 1, 1, cols + 1).setValues([CONFIG.registerHeaders.concat(['\u26A0 Checks'])]);
-  sh.getRange(1, 27, 1, CONFIG.spotHeaders.length + 1).setValues([['RR Key'].concat(CONFIG.spotHeaders)]);
-  styleHeader_(sh, cols + 9); // style A1..AH1 (25 data + checks + key + 7 spot) in one pass
+  var cols = CONFIG.registerHeaders.length; // 26: A..Z incl. Meter Status (U) + Month (Z)
+  // A..T manual · U meter status · V..Z master lookups · AA checks · AB key · AC..AI spot
+  sh.getRange(1, 1, 1, cols + 2).setValues([CONFIG.registerHeaders.concat(['\u26A0 Checks', 'RR Key'])]);
+  sh.getRange(1, cols + 3, 1, CONFIG.spotHeaders.length).setValues([CONFIG.spotHeaders]);
+  styleHeader_(sh, cols + 10); // style A1..AI1 in one pass
   sh.setFrozenRows(1);
   sh.setFrozenColumns(2);
 
@@ -562,14 +571,13 @@ function buildMonthSheet_(ss, name) {
   sh.getRange('B2:B' + (n + 1)).setNumberFormat('hh:mm am/pm');
   sh.getRange('E2:R' + (n + 1)).setNumberFormat('#,##0.00');
   sh.getRange('S2:S' + (n + 1)).setNumberFormat('0.00');
-  sh.getRange(2, 27, n, 8).setNumberFormat('@');
+  sh.getRange(2, 28, n, 8).setNumberFormat('@'); // key + spot columns as text
 
   addValidations_(sh, n);
-  sh.getRange(2, 21, n, 7).setFormulas(autoFormulas_(n, name));
+  sh.getRange(2, 22, n, 7).setFormulas(autoFormulas_(n, name)); // V..AB
 
-  protectStrict_(sh.getRange(1, 1, 1, cols + 1).protect(), 'Header row');
-  protectStrict_(sh.getRange(1, 27, 1, CONFIG.spotHeaders.length + 1).protect(), 'Spot header row');
-  protectStrict_(sh.getRange(2, 21, n, 7).protect(), 'Auto formulas');
+  protectStrict_(sh.getRange(1, 1, 1, cols + 3 + CONFIG.spotHeaders.length).protect(), 'Header row');
+  protectStrict_(sh.getRange(2, 22, n, 7).protect(), 'Auto formulas');
 }
 
 function addValidations_(sh, n) {
@@ -598,9 +606,15 @@ function addValidations_(sh, n) {
     .setAllowInvalid(false)
     .build();
   sh.getRange(2, 1, n, 1).setDataValidation(dateRule);
+
+  var stRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(CONFIG.meterStatuses, true)
+    .setAllowInvalid(true)
+    .build();
+  sh.getRange(2, 21, n, 1).setDataValidation(stRule); // U: Meter Status
 }
 
-/* U..Y auto lookups · Z ⚠ checks · AA hidden normalized RR key · AB..AH spot details.
+/* V..Z auto lookups · AA ⚠ checks · AB hidden normalized RR key · AC..AI spot details.
    All sheet-side RR comparisons (master lookup, unknown-RR, history-max,
    duplicate) go through the normalized key (LOWER + all spaces removed),
    matching the server-side normalizeKey_() — so hand-edited or legacy rows
@@ -610,7 +624,7 @@ function autoFormulas_(n, tab) {
   var f = [];
   for (var i = 0; i < n; i++) {
     var r = i + 2;
-    var k = '$AA' + r; // normalized key
+    var k = '$AB' + r; // normalized key
     var pair = function (spot, keyCol) {
       return 'IF(AND(' + spot + '<>"",' + spot + '<>IFERROR(VLOOKUP(' + k +
         ',_Keys!$A:$H,' + keyCol + ',FALSE),"~none~")),"Spot≠Master ","")';
@@ -625,16 +639,16 @@ function autoFormulas_(n, tab) {
         'IF($D' + r + '="","",IF(COUNTIF(_Keys!$A:$A,' + k + ')=0,"Unknown RR ",""))&' +
         'IF(AND($D' + r + '<>"",$S' + r + '=""),"PF missing ","")&' +
         'IF($S' + r + '="","",IF(OR($S' + r + '<0,$S' + r + '>1),"PF out of range ",""))&' +
-        'IF($E' + r + '="","",IF(IFERROR(MAXIFS(Consolidated!$E:$E,Consolidated!$Z:$Z,' + k + '),0)>$E' + r + ',"CKWh below history ",""))&' +
+        'IF($E' + r + '="","",IF(IFERROR(MAXIFS(Consolidated!$E:$E,Consolidated!$AA:$AA,' + k + '),0)>$E' + r + ',"CKWh below history ",""))&' +
         'IF(AND($D' + r + '<>"",$A' + r + '<>""),IF(TEXT($A' + r + ',"yyyy-mm")<>"' + tab + '","Date not in this month ",""),"")&' +
-        'IF($D' + r + '="","",IF(COUNTIFS($AA$2:$AA,' + k + ',$A$2:$A,$A' + r + ',$C$2:$C,$C' + r + ')>1,"Duplicate entry ",""))&' +
-        pair('$AB' + r, 2) + '&' +
-        pair('$AC' + r, 3) + '&' +
-        pair('$AD' + r, 4) + '&' +
-        pair('$AE' + r, 5) + '&' +
-        pair('$AF' + r, 6) + '&' +
-        pair('$AG' + r, 7) + '&' +
-        pair('$AH' + r, 8) +
+        'IF($D' + r + '="","",IF(COUNTIFS($AB$2:$AB,' + k + ',$A$2:$A,$A' + r + ',$C$2:$C,$C' + r + ')>1,"Duplicate entry ",""))&' +
+        pair('$AC' + r, 2) + '&' +
+        pair('$AD' + r, 3) + '&' +
+        pair('$AE' + r, 4) + '&' +
+        pair('$AF' + r, 5) + '&' +
+        pair('$AG' + r, 6) + '&' +
+        pair('$AH' + r, 7) + '&' +
+        pair('$AI' + r, 8) +
       ')',
       '=IF($D' + r + '="","",LOWER(SUBSTITUTE($D' + r + '," ","")))'
     ]);
@@ -671,8 +685,9 @@ function refreshConsolidated_(ss) {
   var sh = ss.getSheetByName('Consolidated') || ss.insertSheet('Consolidated');
   var months = monthSheets_(ss);
   var rows = months.length * CONFIG.prefillRows + 20;
-  sh.getRange(2, 1, Math.max(rows, CONFIG.prefillRows), 34).clearContent();
+  sh.getRange(2, 1, Math.max(rows, CONFIG.prefillRows), 36).clearContent();
 
+  // NOTE: QUERY output = month A..Z (1..26), then AB..AI (27..34: key + 7 spot), then Source Tab (35)
   var headers = CONFIG.registerHeaders.concat(['RR Key', 'Spot Constant', 'Spot Make',
     'Spot Serial No', 'Spot Phases', 'Spot DTC', 'Spot Feeder', 'Spot Location', 'Source Tab']);
   sh.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -692,10 +707,10 @@ function refreshConsolidated_(ss) {
 function consolidatedFormula_(months) {
   var end = CONFIG.prefillRows + 1;
   var blocks = months.map(function (m) {
-    return '{"' + m + '"!A2:Y' + end + ',"' + m + '"!AA2:AH' + end + ',' +
+    return '{"' + m + '"!A2:Z' + end + ',"' + m + '"!AB2:AI' + end + ',' +
       'ARRAYFORMULA(IF("' + m + '"!D2:D' + end + '<>,"' + m + '",))}';
   });
-  // col 26 = Z = RR Key; spot details at cols 27..33; source tab at 34
+  // A..Z (26) then AB..AI (key + 7 spot); RR Key lands at col AA (27) for MAXIFS
   return '=IFERROR(QUERY({' + blocks.join(';') + '},' +
     '"select * where Col4 is not null order by Col1 desc",0),"No entries yet")';
 }

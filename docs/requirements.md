@@ -79,6 +79,7 @@ No per-person tabs anymore.
 | Reading (Pr kW) | manual | present demand |
 | B1–B6 kW | optional | per-block demand |
 | PF | manual | |
+| Meter Status | dropdown | OK / Defective / Seal broken / Meter stopped / Burnt / Not accessible; defaults to OK |
 | Remarks | optional | |
 | Meter Constant / Make / Serial No / Phases | **auto** | looked up from Master via RR Number (shown live in the form) |
 | Spot meter details (optional) | collapsible form section | Constant/Make/Serial/Phases/DTC/Feeder/Location pre-filled from Master, editable at the spot; written to separate Spot-* columns — only fields the inspector actually entered/kept are stored |
