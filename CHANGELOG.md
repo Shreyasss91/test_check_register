@@ -9,6 +9,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Clearer not-authorized message with the login e-mail**
+  (`apps-script/Code.gs`, `apps-script/Index.html`, README):
+  - `getBootstrap` now returns the visitor's login e-mail alongside
+    `not_authorized`; the form displays: *"Your e-mail
+    you@example.com is not in the Team list. Ask the admin to add your
+    e-mail to the list, or log in with an approved e-mail."* — the
+    inspector sees exactly which account to get approved.
+  - `submitEntry` rejection (offline-queued entries from removed
+    members) uses the same wording; README field-tips line updated.
+
 - **Optional "Meter details" collapsible section in the form**
   (`apps-script/Index.html`, `apps-script/Code.gs`, docs):
   - Same pattern as *Block readings*: a closed `<details>` under the
