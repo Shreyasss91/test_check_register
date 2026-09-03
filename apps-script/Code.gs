@@ -59,6 +59,7 @@ function onOpen() {
     .addItem('Close month (lock)…', 'closeMonth')
     .addItem('Unlock month (corrections)…', 'unlockMonth')
     .addItem('Refresh Consolidated', 'refreshConsolidatedMenu')
+    .addItem('Refresh check formulas (all months)', 'refreshCheckFormulas')
     .addSeparator()
     .addItem('Rebuild all sheets (erases data!)', 'rebuildWithConfirm')
     .addToUi();
@@ -70,6 +71,7 @@ function setupWorkbook() {
   var ss = SpreadsheetApp.getActive();
   buildMaster_(ss);
   buildTeam_(ss);
+  refreshKeys_(ss);
   if (monthSheets_(ss).length === 0) {
     buildMonthSheet_(ss, Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM'));
   }
@@ -86,12 +88,11 @@ function rebuildWithConfirm() {
   if (resp !== ui.Button.YES) return;
   var ss = SpreadsheetApp.getActive();
   var tmp = null;
-  if (ss.getSheets().every(function (s) {
-    return MONTH_RE.test(s.getName()) || /^(Master|Team|Consolidated)$/.test(s.getName());
-  })) tmp = ss.insertSheet('temp-rebuild');
+  var known = function (n) { return MONTH_RE.test(n) || /^(Master|Team|Consolidated|_Keys)$/.test(n); };
+  if (ss.getSheets().every(function (s) { return known(s.getName()); })) tmp = ss.insertSheet('temp-rebuild');
   ss.getSheets().forEach(function (s) {
     var n = s.getName();
-    if (MONTH_RE.test(n) || /^(Master|Team|Consolidated)$/.test(n)) ss.deleteSheet(s);
+    if (known(n)) ss.deleteSheet(s);
   });
   setupWorkbook();
   if (tmp) ss.deleteSheet(tmp);
@@ -137,6 +138,17 @@ function unlockMonth() {
 function refreshConsolidatedMenu() {
   refreshConsolidated_(SpreadsheetApp.getActive());
   SpreadsheetApp.getUi().alert('Consolidated refreshed.');
+}
+
+// rewrites normalized-check formulas on every month tab (incl. old ones)
+function refreshCheckFormulas() {
+  var ss = SpreadsheetApp.getActive();
+  var months = monthSheets_(ss);
+  months.forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    sh.getRange(2, 21, CONFIG.prefillRows, 7).setFormulas(autoFormulas_(CONFIG.prefillRows, name));
+  });
+  SpreadsheetApp.getUi().alert('Check formulas refreshed on ' + months.length + ' month tab(s).');
 }
 
 function pickMonth_(ss, title) {
@@ -409,10 +421,10 @@ function buildMonthSheet_(ss, name) {
   sh.getRange('S2:S' + (n + 1)).setNumberFormat('0.00');
 
   addValidations_(sh, n);
-  sh.getRange(2, 21, n, 6).setFormulas(autoFormulas_(n, name));
+  sh.getRange(2, 21, n, 7).setFormulas(autoFormulas_(n, name));
 
   protectStrict_(sh.getRange(1, 1, 1, cols + 1).protect(), 'Header row');
-  protectStrict_(sh.getRange(2, 21, n, 6).protect(), 'Auto formulas');
+  protectStrict_(sh.getRange(2, 21, n, 7).protect(), 'Auto formulas');
 }
 
 function addValidations_(sh, n) {
@@ -443,27 +455,53 @@ function addValidations_(sh, n) {
   sh.getRange(2, 1, n, 1).setDataValidation(dateRule);
 }
 
+/* U..Y auto lookups · Z ⚠ checks · AA hidden normalized RR key.
+   All sheet-side RR comparisons (master lookup, unknown-RR, history-max,
+   duplicate) go through the normalized key (LOWER + all spaces removed),
+   matching the server-side normalizeKey_() — so hand-edited or legacy rows
+   with variant casing/spacing are checked identically. */
 function autoFormulas_(n, tab) {
   var f = [];
   for (var i = 0; i < n; i++) {
     var r = i + 2;
+    var k = '$AA' + r; // normalized key
     f.push([
-      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$J,7,FALSE),"")',
-      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$J,8,FALSE),"")',
-      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$J,9,FALSE),"")',
-      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$J,10,FALSE),"")',
+      '=IF(' + k + '="","",IFERROR(VLOOKUP(' + k + ',_Keys!$A:$E,2,FALSE),""))',
+      '=IF(' + k + '="","",IFERROR(VLOOKUP(' + k + ',_Keys!$A:$E,3,FALSE),""))',
+      '=IF(' + k + '="","",IFERROR(VLOOKUP(' + k + ',_Keys!$A:$E,4,FALSE),""))',
+      '=IF(' + k + '="","",IFERROR(VLOOKUP(' + k + ',_Keys!$A:$E,5,FALSE),""))',
       '=IF($A' + r + '="","",TEXT($A' + r + ',"yyyy-mm"))',
       '=TRIM(' +
-        'IF($D' + r + '="","",IF(COUNTIF(Master!$A:$A,$D' + r + ')=0,"Unknown RR ",""))&' +
+        'IF($D' + r + '="","",IF(COUNTIF(_Keys!$A:$A,' + k + ')=0,"Unknown RR ",""))&' +
         'IF(AND($D' + r + '<>"",$S' + r + '=""),"PF missing ","")&' +
         'IF($S' + r + '="","",IF(OR($S' + r + '<0,$S' + r + '>1),"PF out of range ",""))&' +
-        'IF($E' + r + '="","",IF(IFERROR(MAXIFS(Consolidated!$E:$E,Consolidated!$D:$D,$D' + r + '),0)>$E' + r + ',"CKWh below history ",""))&' +
+        'IF($E' + r + '="","",IF(IFERROR(MAXIFS(Consolidated!$E:$E,Consolidated!$Z:$Z,' + k + '),0)>$E' + r + ',"CKWh below history ",""))&' +
         'IF(AND($D' + r + '<>"",$A' + r + '<>""),IF(TEXT($A' + r + ',"yyyy-mm")<>"' + tab + '","Date not in this month ",""),"")&' +
-        'IF($D' + r + '="","",IF(COUNTIFS($D$2:$D,$D' + r + ',$A$2:$A,$A' + r + ',$C$2:$C,$C' + r + ')>1,"Duplicate entry ",""))' +
-      ')'
+        'IF($D' + r + '="","",IF(COUNTIFS($AA$2:$AA,' + k + ',$A$2:$A,$A' + r + ',$C$2:$C,$C' + r + ')>1,"Duplicate entry ",""))' +
+      ')',
+      '=IF($D' + r + '="","",LOWER(SUBSTITUTE($D' + r + '," ","")))'
     ]);
   }
   return f;
+}
+
+/* hidden helper tab: live mirror of Master — A = normalized RR key,
+   B..E = Meter Constant / Make / Serial No / Phases. Month tabs look up
+   through here so normalization is computed once, not per cell. */
+function refreshKeys_(ss) {
+  var sh = ss.getSheetByName('_Keys') || ss.insertSheet('_Keys');
+  var last = CONFIG.maxMasterRows + 1;
+  sh.getRange(1, 1, 1, 5).setValues([['RR Key', 'Meter Constant', 'Meter Make', 'Meter Serial No', 'Phases']]);
+  sh.getRange('A2').setFormula('=ARRAYFORMULA(IF(Master!A2:A' + last + '="","",LOWER(SUBSTITUTE(Master!A2:A' + last + '," ",""))))');
+  sh.getRange('B2').setFormula('=ARRAYFORMULA(IF(Master!G2:G' + last + '="","",Master!G2:G' + last + '))');
+  sh.getRange('C2').setFormula('=ARRAYFORMULA(IF(Master!H2:H' + last + '="","",Master!H2:H' + last + '))');
+  sh.getRange('D2').setFormula('=ARRAYFORMULA(IF(Master!I2:I' + last + '="","",Master!I2:I' + last + '))');
+  sh.getRange('E2').setFormula('=ARRAYFORMULA(IF(Master!J2:J' + last + '="","",Master!J2:J' + last + '))');
+  styleHeader_(sh, 5);
+  sh.setFrozenRows(1);
+  protectStrict_(sh.protect(), 'Auto-generated key mirror - do not edit');
+  sh.hideSheet();
+  return sh;
 }
 
 // updates in place - never delete/recreate (month tabs reference it)
@@ -471,9 +509,9 @@ function refreshConsolidated_(ss) {
   var sh = ss.getSheetByName('Consolidated') || ss.insertSheet('Consolidated');
   var months = monthSheets_(ss);
   var rows = months.length * CONFIG.prefillRows + 20;
-  sh.getRange(2, 1, Math.max(rows, CONFIG.prefillRows), 26).clearContent();
+  sh.getRange(2, 1, Math.max(rows, CONFIG.prefillRows), 27).clearContent();
 
-  var headers = CONFIG.registerHeaders.concat(['Source Tab']);
+  var headers = CONFIG.registerHeaders.concat(['RR Key', 'Source Tab']);
   sh.getRange(1, 1, 1, headers.length).setValues([headers]);
   styleHeader_(sh, headers.length);
   sh.setFrozenRows(1);
@@ -491,9 +529,10 @@ function refreshConsolidated_(ss) {
 function consolidatedFormula_(months) {
   var end = CONFIG.prefillRows + 1;
   var blocks = months.map(function (m) {
-    return '{"' + m + '"!A2:Y' + end +
-      ',ARRAYFORMULA(IF("' + m + '"!D2:D' + end + '<>,"' + m + '",))}';
+    return '{"' + m + '"!A2:Y' + end + ',"' + m + '"!AA2:AA' + end + ',' +
+      'ARRAYFORMULA(IF("' + m + '"!D2:D' + end + '<>,"' + m + '",))}';
   });
+  // col 26 = Z = RR Key (from each month's AA); used by month-tab history checks
   return '=IFERROR(QUERY({' + blocks.join(';') + '},' +
     '"select * where Col4 is not null order by Col1 desc",0),"No entries yet")';
 }

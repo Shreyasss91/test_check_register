@@ -113,7 +113,11 @@ Flagged inline (⚠ column, entry still accepted):
 
 Enforcement: hard-blocks run **server-side in the web app** on Submit
 (rejected with a message); flag-rules are written into the row's ⚠ column
-by the sheet formulas as before.
+by the sheet formulas as before. Both layers compare RR Numbers
+**normalized** (case-insensitive, all spaces removed) — the sheet side
+does this through a hidden auto-generated `_Keys` tab plus a hidden key
+column (AA) in each month tab, so hand-edited or legacy rows with variant
+casing/spacing are checked identically to the server.
 
 ## 7. Entry web app (Apps Script)
 

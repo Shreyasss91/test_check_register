@@ -28,6 +28,7 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 | `Team` | Inspectors: Email + Name (login → identity) |
 | `YYYY-MM` | One per month; 1 000 rows ready; ⚠ Checks column flags issues |
 | `Consolidated` | All months stacked live, newest first |
+| `_Keys` | Hidden auto-generated helper: normalized RR keys for case/space-insensitive checks — do not edit |
 
 ## Setup (one time, consolidator)
 
@@ -59,7 +60,8 @@ Hard-blocked at Submit: unknown RR Number/Account ID · PF outside 0–1.
 Enter RR Number or Account ID (either one; matching ignores case and
 spaces; both entered must agree).
 Flagged in the ⚠ Checks column: CKWh below all-history max · block-sum off
-by > ±1 kWh · wrong-month date · duplicates · missing PF.
+by > ±1 kWh · wrong-month date · duplicates · missing PF. All RR matching
+(server **and** sheet formulas) ignores case and spaces.
 
 ## Field tips (inspectors)
 

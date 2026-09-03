@@ -30,14 +30,20 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 10. Approve permissions: *Review permissions* → account →
     *Advanced* → *Go to … (unsafe)* → **Allow**
     (expected warning: you authored the script yourself).
-11. The Sheet now has tabs `Master`, `Team`, current month, `Consolidated`.
+11. The Sheet now has tabs `Master`, `Team`, `_Keys` (hidden — leave it
+    alone), current month, `Consolidated`.
+12. **Existing workbooks upgrading to this version:** run
+    `setupWorkbook` once (creates `_Keys`), then menu
+    *Meter Register > Refresh check formulas (all months)* to rewrite the
+    ⚠-check formulas on existing month tabs with the normalized versions.
+    Month tabs created after the upgrade get them automatically.
 
 ## D. Fill reference data
 
-12. `Team` — one row per inspector:
+13. `Team` — one row per inspector:
     column A = their **Gmail address**, column B = their **name**
     (this exact name is written as "Entered By").
-13. `Master` — one row per meter: RR Number, Account ID, MRID, MD DAY, SF,
+14. `Master` — one row per meter: RR Number, Account ID, MRID, MD DAY, SF,
     Name, Meter Constant, Make, Serial No, Phases, DTC, Feeder, Location.
     RR Numbers must be unique; Account IDs must not repeat across meters
     (inspectors may enter either field — a repeated Account ID is rejected
@@ -46,9 +52,9 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 
 ## E. Deploy the web app
 
-14. Editor → top-right **Deploy** → **New deployment**.
-15. ⚙ gear next to "Select type" → **Web app**.
-16. Configure:
+15. Editor → top-right **Deploy** → **New deployment**.
+16. ⚙ gear next to "Select type" → **Web app**.
+17. Configure:
 
     | Setting | Value |
     |---|---|
@@ -56,26 +62,26 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
     | Execute as | **Me** (the consolidator — script writes on behalf of inspectors) |
     | Who has access | **Anyone with a Google account** |
 
-17. **Deploy** → copy the Web App URL
+18. **Deploy** → copy the Web App URL
     (`https://script.google.com/macros/s/…/exec`).
-18. Pin that URL in the team chat. Do **not** share the Sheet itself
+19. Pin that URL in the team chat. Do **not** share the Sheet itself
     with inspectors — they only ever need this URL.
 
 ## F. Verify before announcing
 
-19. Open the URL on a phone logged into a Gmail that is in `Team`
-    → form shows that person's name top-right.
-20. Submit one test entry against an RR-SAMPLE meter → row appears in the
+20. Open the URL on a phone logged into a Gmail that is in `Team`
+     → form shows that person's name top-right.
+21. Submit one test entry against an RR-SAMPLE meter → row appears in the
     month tab and in `Consolidated`; "Entered By" is correct.
-21. Open the URL from a Gmail **not** in `Team`
-    → must show *"Not authorized"*.
-22. Airplane-mode test: submit while offline → yellow queue bar appears;
+22. Open the URL from a Gmail **not** in `Team`
+     → must show *"Not authorized"*.
+23. Airplane-mode test: submit while offline → yellow queue bar appears;
     reconnect → entry auto-sends within ~30 s.
 
 ## G. Future updates
 
-23. Edit files here → paste updated contents into the Apps Script editor → save.
-24. **Deploy → Manage deployments → ✏ → Version: New version → Deploy.**
+24. Edit files here → paste updated contents into the Apps Script editor → save.
+25. **Deploy → Manage deployments → ✏ → Version: New version → Deploy.**
 
     Keeping the same deployment means the same URL — inspectors' bookmarks
     never break.
@@ -87,6 +93,6 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 | `setupWorkbook` not in function dropdown | Stale editor after large paste — close the Apps Script tab and reopen `Extensions → Apps Script`; keep `Code.gs` as active tab |
 | "Not authorized" for a real inspector | Their Gmail missing/mistyped in `Team` tab column A (check case/spaces) |
 | Form stuck on "Loading…" | Deployment access not set to *Anyone with a Google account*, or user not logged into any Google account |
-| Changes don't appear | Forgot step 24 — old version still deployed |
+| Changes don't appear | Forgot step 25 — old version still deployed |
 | Script file renamed / Index missing | HTML file must be named exactly `Index` |
 | Inspector submits but no row | Check the month tab isn't locked (closed); check hard-block message shown by the form (unknown RR / PF range) |
