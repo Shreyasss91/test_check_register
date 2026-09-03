@@ -58,6 +58,9 @@ the new Spot-* detail columns; `Consolidated` is refreshed automatically.
   first submission (or menu *Meter Register > New month sheet…*).
 - **Month end:** *Close month (lock)…* → download XLSX archive backup.
   (*Unlock month* exists for corrections.)
+- **Anytime:** *Master health check…* audits Master for duplicate RR
+  Numbers, duplicate Account IDs, blank compulsory fields and leftover
+  RR-SAMPLE rows.
 
 ## Validation
 

@@ -67,6 +67,8 @@ function onOpen() {
     .addItem('Refresh Consolidated', 'refreshConsolidatedMenu')
     .addItem('Refresh check formulas (all months)', 'refreshCheckFormulas')
     .addSeparator()
+    .addItem('Master health check…', 'masterHealthCheck')
+    .addSeparator()
     .addItem('Rebuild all sheets (erases data!)', 'rebuildWithConfirm')
     .addToUi();
 }
@@ -156,6 +158,72 @@ function refreshCheckFormulas() {
     sh.getRange(2, 21, CONFIG.prefillRows, 7).setFormulas(autoFormulas_(CONFIG.prefillRows, name));
   });
   SpreadsheetApp.getUi().alert('Check formulas refreshed on ' + months.length + ' month tab(s).');
+}
+
+/* audits Master for problems the form silently tolerates today:
+   duplicate RR keys, duplicate Account IDs, blank compulsory fields,
+   and stray RR-SAMPLE rows still present. */
+function masterHealthCheck() {
+  var ss = SpreadsheetApp.getActive();
+  var vals = ss.getSheetByName('Master')
+    .getRange(2, 1, CONFIG.maxMasterRows, 13).getDisplayValues();
+
+  var rrSeen = {}, accSeen = {}, dupRR = [], dupAcc = [];
+  var blankFields = {}, sampleRows = 0, count = 0;
+  // A rr · B account · C mrid · D md day · E sf · F name · G..J const/make/serial/phases · K..M dtc/feeder/location
+  var required = ['Account ID', 'MRID', 'MD DAY', 'SF', 'Name',
+    'Meter Constant', 'Meter Make', 'Meter Serial No', 'Phases',
+    'DTC', 'Feeder', 'Location'];
+
+  for (var i = 0; i < vals.length; i++) {
+    var row = vals[i].map(function (c) { return c.trim(); });
+    if (!row[0]) continue; // empty row
+    count++;
+    if (/^RR-SAMPLE/i.test(row[0])) { sampleRows++; continue; }
+
+    var key = normalizeKey_(row[0]);
+    if (rrSeen[key] !== undefined) dupRR.push('rows ' + (rrSeen[key] + 2) + ' & ' + (i + 2) + ': ' + row[0]);
+    else rrSeen[key] = i;
+
+    if (row[1]) {
+      var ak = normalizeKey_(row[1]);
+      if (accSeen[ak] !== undefined) dupAcc.push('rows ' + (accSeen[ak] + 2) + ' & ' + (i + 2) + ': ' + row[1]);
+      else accSeen[ak] = i;
+    }
+
+    for (var c = 1; c <= 12; c++) {
+      if (!row[c]) {
+        var fld = required[c - 1];
+        blankFields[fld] = (blankFields[fld] || 0) + 1;
+      }
+    }
+  }
+
+  var lines = ['Scanned ' + count + ' meter row(s) in Master.', ''];
+  if (dupRR.length) {
+    lines.push('DUPLICATE RR Numbers (' + dupRR.length + ') - first occurrence wins in lookups, fix these:');
+    dupRR.forEach(function (d) { lines.push('  • ' + d); });
+    lines.push('');
+  }
+  if (dupAcc.length) {
+    lines.push('DUPLICATE Account IDs (' + dupAcc.length + ') - form rejects them as ambiguous:');
+    dupAcc.forEach(function (d) { lines.push('  • ' + d); });
+    lines.push('');
+  }
+  var blanks = Object.keys(blankFields);
+  if (blanks.length) {
+    lines.push('BLANK compulsory field(s) - RR exists but value missing:');
+    blanks.forEach(function (b) { lines.push('  • ' + b + ': ' + blankFields[b] + ' row(s)'); });
+    lines.push('');
+  }
+  if (sampleRows) lines.push('Sample rows still present: ' + sampleRows + ' (delete once real meters exist).');
+
+  if (!dupRR.length && !dupAcc.length && !blanks.length && !sampleRows) {
+    lines.push('No problems found — Master is clean. ✓');
+  } else {
+    lines.push('Tip: blank/duplicate values silently weaken auto-lookups and the ⚠ checks — fix them in Master.');
+  }
+  SpreadsheetApp.getUi().alert('Master health check', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 function pickMonth_(ss, title) {
