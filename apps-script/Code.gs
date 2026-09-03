@@ -92,11 +92,32 @@ function rebuildWithConfirm() {
   var ui = SpreadsheetApp.getUi();
   var resp = ui.alert(
     'Rebuild sheets?',
-    'Every tab (Master, Team, Consolidated, months) is deleted and recreated. ALL data is lost. Continue?',
+    'Every tab (Master, Team, Consolidated, months) is deleted and recreated. ALL data is lost.\n\n' +
+    'A full XLSX backup is saved to Drive first. Continue?',
     ui.ButtonSet.YES_NO
   );
   if (resp !== ui.Button.YES) return;
   var ss = SpreadsheetApp.getActive();
+
+  // safety net: full-workbook XLSX backup before erasing anything
+  var backupName = null;
+  try {
+    var blob = exportAllBlob_(ss);
+    var folder = getOrCreateFolder_();
+    var file = DriveApp.createFile(blob);
+    backupName = 'Meter Register FULL BACKUP (' +
+      Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd HH:mm') + ').xlsx';
+    file.setName(backupName);
+  } catch (err) {
+    var goOn = ui.alert(
+      'Backup failed',
+      'Could not save the backup: ' + (err && err.message || err) +
+      '\n\nRebuild anyway WITHOUT a backup?',
+      ui.ButtonSet.YES_NO
+    );
+    if (goOn !== ui.Button.YES) return;
+  }
+
   var tmp = null;
   var known = function (n) { return MONTH_RE.test(n) || /^(Master|Team|Consolidated|_Keys)$/.test(n); };
   if (ss.getSheets().every(function (s) { return known(s.getName()); })) tmp = ss.insertSheet('temp-rebuild');
@@ -106,7 +127,21 @@ function rebuildWithConfirm() {
   });
   setupWorkbook();
   if (tmp) ss.deleteSheet(tmp);
-  ui.alert('Done. Workbook rebuilt.');
+  ui.alert('Done. Workbook rebuilt.' +
+    (backupName ? '\n\nBackup saved to Drive folder "Meter Register Exports":\n' + backupName : ''));
+}
+
+// whole-workbook XLSX (all tabs)
+function exportAllBlob_(ss) {
+  var url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?exportFormat=xlsx';
+  var resp = UrlFetchApp.fetch(url, {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() !== 200) {
+    throw new Error('Export endpoint returned HTTP ' + resp.getResponseCode() + '.');
+  }
+  return resp.getBlob();
 }
 
 /* ================= menu actions ================= */
