@@ -9,6 +9,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Master health-check menu item** (`apps-script/Code.gs`, README):
+  new *Meter Register > Master health check…* audits the Master tab and
+  reports what the form silently tolerates today:
+  - **Duplicate RR Numbers** (normalized-key collision — the resolver
+    takes first occurrence, so dupes weaken lookups) with row numbers.
+  - **Duplicate Account IDs** (the form rejects these as "ambiguous" at
+    submit — better caught early) with row numbers.
+  - **Blank compulsory fields** per column (Account ID, MRID, MD DAY,
+    SF, Name, Constant, Make, Serial, Phases, DTC, Feeder, Location)
+    with per-field counts.
+  - Leftover **RR-SAMPLE** rows.
+  Clean result: "No problems found — Master is clean. ✓". README's
+  monthly routine mentions it.
+
 - **Month-tab capacity alert** (`apps-script/Code.gs`,
   `apps-script/Index.html`):
   - At ≥ 90 % of the 1 000-row budget, `submitEntry` appends a
