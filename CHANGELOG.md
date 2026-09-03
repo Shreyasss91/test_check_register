@@ -9,6 +9,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Submit UX: toast + full form clear on every path**
+  (`apps-script/Index.html`):
+  - Online success: toast now says "Saved ✓ row N (month) — form
+    cleared for next entry" (plus any ⚠ warnings); all fields emptied,
+    Date/Time re-prefilled to now. *(existed)*
+  - Offline submit: entry is queued **and the form is cleared** with a
+    confirming toast — previously the fields stayed filled, inviting
+    accidental double submission of the same reading.
+  - Send-failure (server unreachable mid-submit): entry queued for
+    auto-retry, form cleared with a clear message — same double-entry
+    protection.
+
 - **⚠-Checks sheet formulas normalized** (`apps-script/Code.gs`, docs):
   previously only the server-side (JavaScript) checks ignored case and
   spaces — the in-sheet ⚠ column formulas (unknown-RR `COUNTIF`,
