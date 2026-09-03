@@ -36,6 +36,7 @@
              font-size:14px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.25); }
     .t-ok { background:#e6f4ea; color:var(--ok); } .t-err { background:#fce8e6; color:var(--err); }
     .center { text-align:center; padding:40px 20px; color:#5f6368; }
+    .ver { text-align:center; font-size:11px; color:#9aa0a6; margin:2px 0 8px; }
     small.req { color:var(--err); }
     #queueBar { display:none; background:#fef7e0; color:#7a5b00; font-size:13px;
                 padding:8px 16px; text-align:center; cursor:pointer; }
@@ -145,10 +146,12 @@
       '</div>' +
 
       '<div class="card"><label>Remarks (optional)</label>' +
-      '<textarea id="remarks" rows="2" maxlength="200"></textarea></div>';
+      '<textarea id="remarks" rows="2" maxlength="200"></textarea></div>' +
+      '<div class="ver" id="ver"></div>';
 
     document.getElementById('rr').addEventListener('input', onRR);
     document.getElementById('acct').addEventListener('input', onRR);
+    if (r.version) document.getElementById('ver').textContent = 'Meter Register ' + r.version;
     document.getElementById('btn').style.display = 'block';
     renderQ();
   }

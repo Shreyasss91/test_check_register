@@ -82,6 +82,8 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 ## G. Future updates
 
 24. Edit files here → paste updated contents into the Apps Script editor → save.
+    Also bump `CONFIG.version` in `Code.gs` (shown in the form footer) so
+    anyone can confirm which version is live.
 25. **Deploy → Manage deployments → ✏ → Version: New version → Deploy.**
 
     Keeping the same deployment means the same URL — inspectors' bookmarks

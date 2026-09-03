@@ -18,6 +18,7 @@
  */
 
 var CONFIG = {
+  version: 'v1.5.0', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 1000,
   maxTeamRows: 200,
@@ -215,6 +216,7 @@ function getBootstrap() {
     return {
       ok: true,
       user: user,
+      version: CONFIG.version,
       currentMonth: Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM'),
       meters: meters
     };
