@@ -75,6 +75,9 @@ function onOpen() {
     .addItem('Refresh check formulas (all months)', 'refreshCheckFormulas')
     .addItem('Rebuild Analytics tab', 'rebuildAnalyticsMenu')
     .addSeparator()
+    .addItem('Send weekly digest now (test)', 'sendWeeklyDigestMenu')
+    .addItem('Install weekly digest trigger (Mon 8am)', 'installWeeklyDigest')
+    .addSeparator()
     .addItem('Master health check…', 'masterHealthCheck')
     .addSeparator()
     .addItem('Rebuild all sheets (erases data!)', 'rebuildWithConfirm')
@@ -223,6 +226,103 @@ function unlockMonth() {
   ss.getSheetByName(name).getProtections(SpreadsheetApp.ProtectionType.SHEET)
     .forEach(function (p) { p.remove(); });
   SpreadsheetApp.getUi().alert('Unlocked "' + name + '".');
+}
+
+/* ================= weekly digest ================= */
+
+function sendWeeklyDigestMenu() {
+  var n = sendWeeklyDigest();
+  SpreadsheetApp.getUi().alert('Weekly digest sent.' +
+    (n ? ' (' + n + ' entries this week.)' : ' (No entries this week — still sent a short note.)'));
+}
+
+// creates a Monday 08:00 time-based trigger (idempotent - deletes old digests first)
+function installWeeklyDigest() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'sendWeeklyDigest') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('sendWeeklyDigest')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.MONDAY)
+    .atHour(8)
+    .create();
+  SpreadsheetApp.getUi().alert('Weekly digest scheduled: every Monday 08:00.\n' +
+    'Runs as the consolidator — sent to your Gmail. Use "Send weekly digest now" to preview.');
+}
+
+// returns the number of entries in the past 7 days (used by the menu for feedback)
+function sendWeeklyDigest() {
+  var ss = SpreadsheetApp.getActive();
+  var tz = ss.getSpreadsheetTimeZone();
+  var now = new Date();
+  var weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+
+  var months = monthSheets_(ss);
+  var perInspector = {}, total = 0, flagged = [];
+  var capacity = [];
+
+  months.forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh) return;
+    var last = Math.min(sh.getLastRow(), CONFIG.prefillRows + 1);
+    if (last < 2) return;
+    var rows = sh.getRange(2, 1, last - 1, 27).getDisplayValues(); // A..AA
+    var used = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var d = parseDMY_(rows[i][0]);
+      if (!d || d < weekAgo) {
+        if (rows[i][3]) used++; // still count capacity for old rows
+        continue;
+      }
+      if (!rows[i][3]) continue; // empty row
+      total++;
+      used++;
+      var who = rows[i][2] || '(unknown)';
+      perInspector[who] = (perInspector[who] || 0) + 1;
+
+      var flags = String(rows[i][26] || '').trim(); // AA = ⚠ Checks
+      if (flags && flags !== '\u26A0 Checks') flagged.push(name + ' row ' + (i + 2) + ' (' + rows[i][3] + ', ' + who + '): ' + flags);
+    }
+    var capPct = Math.round(used * 100 / CONFIG.prefillRows);
+    if (capPct >= 70) capacity.push('  • ' + name + ': ' + used + '/' + CONFIG.prefillRows + ' rows (' + capPct + '%)');
+  });
+
+  var lines = [];
+  lines.push('WEEKLY DIGEST — Meter Inspection Register');
+  lines.push(Utilities.formatDate(now, tz, 'EEEE, d MMMM yyyy'));
+  lines.push('');
+  lines.push('Entries in the last 7 days: ' + total);
+  lines.push('');
+  if (Object.keys(perInspector).length) {
+    lines.push('Per inspector:');
+    Object.keys(perInspector).sort(function (a, b) { return perInspector[b] - perInspector[a]; })
+      .forEach(function (k) { lines.push('  • ' + k + ': ' + perInspector[k]); });
+  } else {
+    lines.push('Per inspector: no submissions this week.');
+  }
+  lines.push('');
+  if (flagged.length) {
+    lines.push('Flagged rows (⚠ Checks), ' + flagged.length + ':');
+    flagged.slice(0, 30).forEach(function (f) { lines.push('  • ' + f); });
+    if (flagged.length > 30) lines.push('  • … and ' + (flagged.length - 30) + ' more');
+  } else {
+    lines.push('Flagged rows: none. ✓');
+  }
+  lines.push('');
+  if (capacity.length) {
+    lines.push('Month-tab capacity:');
+    capacity.forEach(function (c) { lines.push(c); });
+  } else {
+    lines.push('Month-tab capacity: all below 70%.');
+  }
+  lines.push('');
+  lines.push('— Sent automatically by the Meter Register script.');
+
+  MailApp.sendEmail(
+    Session.getEffectiveUser().getEmail(),
+    'Meter Register weekly digest — ' + total + ' entries',
+    lines.join('\n'));
+  return total;
 }
 
 function refreshConsolidatedMenu() {

@@ -64,6 +64,10 @@ the new Spot-* detail columns; `Consolidated` is refreshed automatically.
 - **Anytime:** *Master health check…* audits Master for duplicate RR
   Numbers, duplicate Account IDs, blank compulsory fields and leftover
   RR-SAMPLE rows.
+- **Weekly digest (optional):** *Install weekly digest trigger (Mon
+  8am)* emails you a summary every Monday — entries in the last 7 days
+  (per inspector), flagged ⚠ rows, and month-tab capacity. *Send weekly
+  digest now (test)* previews it.
 
 ## Validation
 

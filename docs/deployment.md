@@ -91,9 +91,10 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 
 ## Troubleshooting
 
-| Symptom | Cause / fix |
-|---|---|
-| `setupWorkbook` not in function dropdown | Stale editor after large paste — close the Apps Script tab and reopen `Extensions → Apps Script`; keep `Code.gs` as active tab |
+    | Symptom | Cause / fix |
+    |---|---|
+    | Weekly digest not arriving | Trigger not installed (menu *Meter Register > Install weekly digest trigger*), or it lands in Gmail spam — check that the Apps Script trigger exists under the clock icon in the editor |
+    | `setupWorkbook` not in function dropdown | Stale editor after large paste — close the Apps Script tab and reopen `Extensions → Apps Script`; keep `Code.gs` as active tab |
 | "Not authorized" for a real inspector | Their Gmail missing/mistyped in `Team` tab column A (check case/spaces) |
 | Form stuck on "Loading…" | Deployment access not set to *Anyone with a Google account*, or user not logged into any Google account |
 | Changes don't appear | Forgot step 25 — old version still deployed |
