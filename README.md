@@ -24,7 +24,7 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 
 | Tab | Purpose |
 |---|---|
-| `Master` | Meter list: RR No, constant, make, serial, phases, spot/feeder |
+| `Master` | Meter list: RR No, account ID, MRID, MD DAY, SF, name, constant, make, serial, phases, DTC, feeder, location |
 | `Team` | Inspectors: Email + Name (login → identity) |
 | `YYYY-MM` | One per month; 1 000 rows ready; ⚠ Checks column flags issues |
 | `Consolidated` | All months stacked live, newest first |

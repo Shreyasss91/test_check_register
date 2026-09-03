@@ -53,7 +53,7 @@ Single spreadsheet containing:
 
 | Tab | Purpose |
 |---|---|
-| `Master` | One row per meter: RR No, Meter Constant, Make, Serial No, Phases, Spot/Feeder |
+| `Master` | One row per meter: RR No, Account ID, MRID, MD DAY, SF, Name, Meter Constant, Make, Serial No, Phases, DTC, Feeder, Location |
 | `Team` | Inspectors: Email + Name (login email drives "Entered By") |
 | `<Month>` e.g. `2026-08` | One tab per month — all submitted entries land here |
 | `Consolidated` | Live stack of all month tabs (all history, newest first) |

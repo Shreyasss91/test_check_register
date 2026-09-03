@@ -23,13 +23,16 @@ var CONFIG = {
   maxTeamRows: 200,
 
   masterHeaders: [
-    'RR Number', 'Meter Constant', 'Meter Make', 'Meter Serial No',
-    'Phases', 'Spot / Feeder', 'Notes'
+    'RR Number', 'Account ID', 'MRID', 'MD DAY', 'SF', 'Name',
+    'Meter Constant', 'Meter Make', 'Meter Serial No', 'Phases',
+    'DTC', 'Feeder', 'Location', 'Notes'
   ],
   masterSampleRows: [
-    ['RR-SAMPLE-01', '11', 'L&T', 'LT12345', '3', 'Feeder A',
+    ['RR-SAMPLE-01', 'ACC-001', 'MR-001', '15', '1', 'Consumer One',
+      '11', 'L&T', 'LT12345', '3', 'DTC-01', 'Feeder A', 'Location X',
       'sample row - edit or delete'],
-    ['RR-SAMPLE-02', '22', 'Secura', 'SE67890', '1', 'Feeder B', '']
+    ['RR-SAMPLE-02', 'ACC-002', 'MR-002', '10', '1', 'Consumer Two',
+      '22', 'Secura', 'SE67890', '1', 'DTC-02', 'Feeder B', 'Location Y', '']
   ],
 
   teamHeaders: ['Email', 'Name'],
@@ -176,12 +179,15 @@ function getBootstrap() {
     if (!user) return { ok: false, reason: 'not_authorized' };
 
     var meters = [];
-    var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 6).getDisplayValues();
+    var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 13).getDisplayValues();
     for (var i = 0; i < mv.length; i++) {
       if (mv[i][0].trim()) {
         meters.push({
-          rr: mv[i][0].trim(), constant: mv[i][1].trim(), make: mv[i][2].trim(),
-          serial: mv[i][3].trim(), phases: mv[i][4].trim(), spot: mv[i][5].trim()
+          rr: mv[i][0].trim(), accountId: mv[i][1].trim(), mrid: mv[i][2].trim(),
+          mdDay: mv[i][3].trim(), sf: mv[i][4].trim(), name: mv[i][5].trim(),
+          constant: mv[i][6].trim(), make: mv[i][7].trim(), serial: mv[i][8].trim(),
+          phases: mv[i][9].trim(), dtc: mv[i][10].trim(), feeder: mv[i][11].trim(),
+          spot: mv[i][12].trim()
         });
       }
     }
@@ -409,10 +415,10 @@ function autoFormulas_(n, tab) {
   for (var i = 0; i < n; i++) {
     var r = i + 2;
     f.push([
-      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$E,2,FALSE),"")',
-      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$E,3,FALSE),"")',
-      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$E,4,FALSE),"")',
-      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$E,5,FALSE),"")',
+      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$J,7,FALSE),"")',
+      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$J,8,FALSE),"")',
+      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$J,9,FALSE),"")',
+      '=IFERROR(VLOOKUP($D' + r + ',Master!$A:$J,10,FALSE),"")',
       '=IF($A' + r + '="","",TEXT($A' + r + ',"yyyy-mm"))',
       '=TRIM(' +
         'IF($D' + r + '="","",IF(COUNTIF(Master!$A:$A,$D' + r + ')=0,"Unknown RR ",""))&' +

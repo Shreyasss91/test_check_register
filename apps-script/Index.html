@@ -88,7 +88,7 @@
     var dls = document.createElement('datalist'); dls.id = 'rrList';
     r.meters.forEach(function (m) {
       var o = document.createElement('option');
-      o.value = m.rr; o.label = m.spot ? m.spot + ' · ' + m.make : m.make;
+      o.value = m.rr; o.label = m.name ? m.name + ' · ' + m.make : m.make;
       dls.appendChild(o);
     });
     document.body.appendChild(dls);
@@ -151,9 +151,13 @@
     }
     var box = document.getElementById('meterInfo');
     if (!m) { box.style.display = 'none'; return; }
-    box.textContent = 'Make: ' + (m.make || '—') + ' · S.No: ' + (m.serial || '—') +
+    box.textContent = 'Name: ' + (m.name || '—') + ' · Acct: ' + (m.accountId || '—') +
+      ' · MRID: ' + (m.mrid || '—') + '\n' +
+      'Make: ' + (m.make || '—') + ' · S.No: ' + (m.serial || '—') +
       '\nConstant: ' + (m.constant || '—') + ' · Phases: ' + (m.phases || '—') +
-      (m.spot ? '\nSpot: ' + m.spot : '');
+      ' · MD DAY: ' + (m.mdDay || '—') + ' · SF: ' + (m.sf || '—') +
+      (m.dtc || m.feeder || m.spot ? '\nDTC: ' + (m.dtc || '—') +
+        ' · Feeder: ' + (m.feeder || '—') + ' · Location: ' + (m.spot || '—') : '');
     box.style.whiteSpace = 'pre-line';
     box.style.display = 'block';
   }

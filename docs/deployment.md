@@ -37,8 +37,9 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 12. `Team` — one row per inspector:
     column A = their **Gmail address**, column B = their **name**
     (this exact name is written as "Entered By").
-13. `Master` — one row per meter: RR Number, Meter Constant, Make,
-    Serial No, Phases, Spot/Feeder. RR Numbers must be unique.
+13. `Master` — one row per meter: RR Number, Account ID, MRID, MD DAY, SF,
+    Name, Meter Constant, Make, Serial No, Phases, DTC, Feeder, Location.
+    RR Numbers must be unique.
     Delete the two `RR-SAMPLE` rows once real meters are entered.
 
 ## E. Deploy the web app
