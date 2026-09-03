@@ -35,8 +35,9 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 12. **Existing workbooks upgrading to this version:** run
     `setupWorkbook` once (creates `_Keys`), then menu
     *Meter Register > Refresh check formulas (all months)* to rewrite the
-    ⚠-check formulas on existing month tabs with the normalized versions.
-    Month tabs created after the upgrade get them automatically.
+    ⚠-check formulas on existing month tabs with the normalized versions
+    and add the Spot-* detail columns. Month tabs created after the
+    upgrade get them automatically.
 
 ## D. Fill reference data
 

@@ -49,7 +49,8 @@ After any code change: *Deploy → Manage deployments → ✏ → New version*.
 
 **Upgrading an existing workbook:** after pasting the new code, run
 `setupWorkbook` once, then menu *Meter Register > Refresh check formulas
-(all months)* — existing month tabs keep their old ⚠ formulas otherwise.
+(all months)* — existing month tabs get the normalized ⚠ formulas plus
+the new Spot-* detail columns; `Consolidated` is refreshed automatically.
 
 ## Monthly routine (consolidator)
 
@@ -71,6 +72,9 @@ by > ±1 kWh · wrong-month date · duplicates · missing PF. All RR matching
 
 - Open the pinned form URL once → browser menu → *Add to Home screen*.
 - Date/Time are pre-filled at the spot and stay editable.
+- **Meter details (optional)** under the RR field opens Constant/Make/
+  Serial/Phases/DTC/Feeder/Location — pre-filled from Master; correct
+  them at the spot if the meter differs.
 - No network? Submit anyway — it saves on the phone and sends itself later;
   the yellow bar shows how many entries are waiting.
 - "Not authorized"? Your Gmail isn't in the Team tab yet — contact the

@@ -81,6 +81,7 @@ No per-person tabs anymore.
 | PF | manual | |
 | Remarks | optional | |
 | Meter Constant / Make / Serial No / Phases | **auto** | looked up from Master via RR Number (shown live in the form) |
+| Spot meter details (optional) | collapsible form section | Constant/Make/Serial/Phases/DTC/Feeder/Location pre-filled from Master, editable at the spot; written to separate Spot-* columns — only fields the inspector actually entered/kept are stored |
 | Month | **auto** | derived from Date |
 | ⚠ Checks | **auto** | inline validation flags (see §6) |
 

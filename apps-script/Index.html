@@ -119,6 +119,15 @@
           '<input list="acList" id="acct" autocomplete="off" placeholder="either one is enough"></div>' +
         '</div>' +
         '<div id="meterInfo"></div>' +
+        '<details><summary>Meter details (optional – edit what you see at the spot)</summary><div class="grid6">' +
+          '<div><label>Constant</label><input id="mdConstant" autocomplete="off"></div>' +
+          '<div><label>Make</label><input id="mdMake" autocomplete="off"></div>' +
+          '<div><label>Serial No</label><input id="mdSerial" autocomplete="off"></div>' +
+          '<div><label>Phases</label><input id="mdPhases" autocomplete="off"></div>' +
+          '<div><label>DTC</label><input id="mdDtc" autocomplete="off"></div>' +
+          '<div><label>Feeder</label><input id="mdFeeder" autocomplete="off"></div>' +
+          '<div><label>Location</label><input id="mdLocation" autocomplete="off"></div>' +
+        '</div></details>' +
       '</div>' +
 
       '<div class="card">' +
@@ -174,6 +183,22 @@
         ' · Feeder: ' + (m.feeder || '—') + ' · Location: ' + (m.spot || '—') : '');
     box.style.whiteSpace = 'pre-line';
     box.style.display = 'block';
+    // pre-fill the optional meter-details section from Master (overwrites when
+    // the resolved meter changes; leaves the inspector's own edits alone)
+    if (lastMeter !== m.rr) {
+      lastMeter = m.rr;
+      setVal('mdConstant', m.constant, true); setVal('mdMake', m.make, true);
+      setVal('mdSerial', m.serial, true); setVal('mdPhases', m.phases, true);
+      setVal('mdDtc', m.dtc, true); setVal('mdFeeder', m.feeder, true);
+      setVal('mdLocation', m.spot, true);
+    }
+  }
+
+  var lastMeter = null;
+
+  function setVal(id, v, force) {
+    var el = document.getElementById(id);
+    if (el && (force || !el.value)) el.value = v || '';
   }
 
   /* ---------- submit ---------- */
@@ -214,6 +239,11 @@
       date: g('date'), time: g('time'),
       rr: g('rr'), accountId: g('acct'), ckwh: g('ckwh'), prk: g('prk'),
       pf: g('pf'), remarks: g('remarks'),
+      meterDetails: {
+        constant: g('mdConstant'), make: g('mdMake'), serial: g('mdSerial'),
+        phases: g('mdPhases'), dtc: g('mdDtc'), feeder: g('mdFeeder'),
+        location: g('mdLocation')
+      },
       blocksKwh: [], bkw: []
     };
     for (var i = 1; i <= 6; i++) {
@@ -233,7 +263,9 @@
 
   // clears every input for the next inspection; Date/Time re-prefilled to now
   function resetReadings() {
-    ['ckwh','prk','pf','remarks','rr','acct'].forEach(function (id) { document.getElementById(id).value = ''; });
+    ['ckwh','prk','pf','remarks','rr','acct','mdConstant','mdMake','mdSerial','mdPhases','mdDtc','mdFeeder','mdLocation']
+      .forEach(function (id) { document.getElementById(id).value = ''; });
+    lastMeter = null;
     for (var i = 1; i <= 6; i++) {
       document.getElementById('bk' + i).value = '';
       document.getElementById('bw' + i).value = '';
