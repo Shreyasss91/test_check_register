@@ -9,6 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Deployed-version stamp** (`apps-script/Code.gs`,
+  `apps-script/Index.html`, `docs/deployment.md`):
+  new `CONFIG.version` (starts at `v1.5.0`) is served by `getBootstrap`
+  and rendered in a small footer line in the form ("Meter Register
+  v1.5.0"). Solves the top troubleshooting row instantly — inspectors
+  and the consolidator can *see* which deployment is live instead of
+  guessing whether a new version was published. Deployment guide now
+  says to bump the version on every release.
+
 - **Offline-queue poison-pill fix** (`apps-script/Index.html`):
   a server-rejected head entry (e.g. unknown RR after a Master cleanup)
   used to halt `syncQueue` forever, stranding every entry behind it.
