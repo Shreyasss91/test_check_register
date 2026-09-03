@@ -151,8 +151,10 @@ Start fresh from go-live. No back-entry of paper registers.
 ## 10. Non-goals
 
 Photos, GPS, signatures, native mobile app, external hosting/backend,
-billing analytics, paper-register migration. Analytics deferred but the
-flat row format keeps later pivots easy (Entered By, RR Number, month).
+paper-register migration. Analytics: a starter `Analytics` tab with live
+QUERY pivots (per inspector / month / meter status / feeder / DTC) ships
+as part of the workbook; deeper analysis stays deferred but the flat row
+format keeps later pivots easy (Entered By, RR Number, month).
 
 ## 11. Decision log
 

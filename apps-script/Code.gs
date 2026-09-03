@@ -59,6 +59,11 @@ var CONFIG = {
 
 var MONTH_RE = /^\d{4}-\d{2}$/;
 
+/* Consolidated layout (QUERY output order): A..Z = 1..26 (Z=26 Meter
+   Status), then month-tab AB..AI = 27..34 (27 RR Key, 28..30 Spot
+   Const/Make/Serial, 31 Spot Phases, 32 Spot DTC, 33 Spot Feeder,
+   34 Spot Location), 35 = Source Tab. Analytics pivots query these. */
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Meter Register')
@@ -68,6 +73,7 @@ function onOpen() {
     .addItem('Export month to XLSX (Drive)…', 'exportMonth')
     .addItem('Refresh Consolidated', 'refreshConsolidatedMenu')
     .addItem('Refresh check formulas (all months)', 'refreshCheckFormulas')
+    .addItem('Rebuild Analytics tab', 'rebuildAnalyticsMenu')
     .addSeparator()
     .addItem('Master health check…', 'masterHealthCheck')
     .addSeparator()
@@ -86,6 +92,7 @@ function setupWorkbook() {
     buildMonthSheet_(ss, Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM'));
   }
   refreshConsolidated_(ss);
+  refreshAnalytics_(ss);
 }
 
 function rebuildWithConfirm() {
@@ -119,7 +126,7 @@ function rebuildWithConfirm() {
   }
 
   var tmp = null;
-  var known = function (n) { return MONTH_RE.test(n) || /^(Master|Team|Consolidated|_Keys)$/.test(n); };
+  var known = function (n) { return MONTH_RE.test(n) || /^(Master|Team|Consolidated|_Keys|Analytics)$/.test(n); };
   if (ss.getSheets().every(function (s) { return known(s.getName()); })) tmp = ss.insertSheet('temp-rebuild');
   ss.getSheets().forEach(function (s) {
     var n = s.getName();
@@ -234,6 +241,55 @@ function refreshCheckFormulas() {
     sh.getRange(2, 22, CONFIG.prefillRows, 7).setFormulas(autoFormulas_(CONFIG.prefillRows, name));
   });
   SpreadsheetApp.getUi().alert('Check formulas refreshed on ' + months.length + ' month tab(s).');
+}
+
+function rebuildAnalyticsMenu() {
+  var ss = SpreadsheetApp.getActive();
+  refreshAnalytics_(ss);
+  SpreadsheetApp.getUi().alert('Analytics tab rebuilt.');
+}
+
+/* Analytics tab: live QUERY pivots over Consolidated (never stores data).
+   Layout per refreshAnalytics_ blocks below. */
+function refreshAnalytics_(ss) {
+  var sh = ss.getSheetByName('Analytics') || ss.insertSheet('Analytics');
+  sh.clear();
+  sh.getRange('A1').setValue('ANALYTICS — live pivots over Consolidated (refresh via menu)');
+  sh.getRange('A1').setFontWeight('bold').setFontSize(13);
+  sh.setFrozenRows(2);
+
+  // 1. entries per inspector (all time)
+  sh.getRange('A3').setValue('Entries per inspector');
+  sh.getRange('A4').setFormula(
+    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col3, count(Col3) where Col3 is not null and Col3 <> \'Entered By\' group by Col3 order by count(Col3) desc label Col3 \'Inspector\', count(Col3) \'Entries\'", 0), "No entries yet")');
+
+  // 2. entries per month
+  sh.getRange('D3').setValue('Entries per month');
+  sh.getRange('D4').setFormula(
+    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col35, count(Col35) where Col35 is not null and Col35 <> \'Source Tab\' group by Col35 order by Col35 desc label Col35 \'Month\', count(Col35) \'Entries\'", 0), "No entries yet")');
+
+  // 3. entries per meter status
+  sh.getRange('G3').setValue('Entries per meter status');
+  sh.getRange('G4').setFormula(
+    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col26, count(Col26) where Col4 is not null and Col26 <> \'Meter Status\' group by Col26 order by count(Col26) desc label Col26 \'Status\', count(Col26) \'Entries\'", 0), "No entries yet")');
+
+  // 4. problem meters: flagged rows per RR (any spot drift or bad PF etc. — flagged = status <> OK)
+  sh.getRange('J3').setValue('Non-OK meters (needs attention)');
+  sh.getRange('J4').setFormula(
+    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col26, Col4, count(Col4) where Col4 is not null and Col26 <> \'Meter Status\' and Col26 <> \'OK\' and lower(Col26) <> \'ok\' group by Col26, Col4 order by count(Col4) desc limit 25 label Col26 \'Status\', Col4 \'RR Number\', count(Col4) \'Entries\'", 0), "No entries yet")');
+
+  // 5. feeder/DTC coverage from spot details (where entered)
+  sh.getRange('N3').setValue('Spot Feeder coverage (top 20)');
+  sh.getRange('N4').setFormula(
+    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col33, count(Col33) where Col33 is not null and Col33 <> \'Spot Feeder\' group by Col33 order by count(Col33) desc limit 20 label Col33 \'Spot Feeder\', count(Col33) \'Entries\'", 0), "No entries yet")');
+
+  sh.getRange('Q3').setValue('Spot DTC coverage (top 20)');
+  sh.getRange('Q4').setFormula(
+    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col32, count(Col32) where Col32 is not null and Col32 <> \'Spot DTC\' group by Col32 order by count(Col32) desc limit 20 label Col32 \'Spot DTC\', count(Col32) \'Entries\'", 0), "No entries yet")');
+
+  if (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) {
+    protectStrict_(sh.protect(), 'Analytics - formula view, read-only');
+  }
 }
 
 /* audits Master for problems the form silently tolerates today:

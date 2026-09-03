@@ -28,6 +28,7 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 | `Team` | Inspectors: Email + Name (login → identity) |
 | `YYYY-MM` | One per month; 1 000 rows ready; ⚠ Checks column flags issues |
 | `Consolidated` | All months stacked live, newest first |
+| `Analytics` | Live pivots: entries per inspector/month/status, non-OK meters, feeder/DTC coverage |
 | `_Keys` | Hidden auto-generated helper: normalized RR keys for case/space-insensitive checks — do not edit |
 
 ## Setup (one time, consolidator)
