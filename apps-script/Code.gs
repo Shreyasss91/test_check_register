@@ -265,7 +265,30 @@ function submitEntry(p) {
     SpreadsheetApp.flush();
 
     var warnings = computeWarnings_(ss, sh, row, tabName, v, user.name);
-    return { ok: true, row: row - 1, month: tabName, warnings: warnings };
+
+    // capacity alert: tell the submitter + email the owner once at 90%
+    var used = row - 1;
+    var result = { ok: true, row: used, month: tabName, warnings: warnings };
+    if (used >= Math.floor(CONFIG.prefillRows * 0.9)) {
+      result.capacity = 'Month tab "' + tabName + '" is near capacity (' + used + '/' + CONFIG.prefillRows + ' rows).';
+      result.capacityCritical = (used >= CONFIG.prefillRows - 1);
+      try {
+        var props = PropertiesService.getScriptProperties();
+        var flag = 'capAlert_' + tabName;
+        if (!props.getProperty(flag)) {
+          props.setProperty(flag, String(new Date().getTime()));
+          MailApp.sendEmail(
+            Session.getEffectiveUser().getEmail(),
+            'Meter Register: month ' + tabName + ' near capacity',
+            'Month tab "' + tabName + '" has reached ' + used + ' of ' +
+              CONFIG.prefillRows + ' rows.\n\n' +
+              'Action: extend the month tab (add more pre-filled formula rows) ' +
+              'or close the month early.\n\n' +
+              '(You get this email once per month tab.)');
+        }
+      } catch (mailErr) { /* email is best-effort; never block the submit */ }
+    }
+    return result;
   } catch (err) {
     return { ok: false, error: String(err && err.message || err) };
   } finally {

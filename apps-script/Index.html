@@ -224,7 +224,8 @@
         submitting = false; btn(false);
         if (r && r.ok) {
           toast('Saved ✓ row ' + r.row + ' (' + r.month + ') — form cleared for next entry' +
-                (r.warnings.length ? ' ⚠ ' + r.warnings.join(' · ') : ''), !r.warnings.length);
+                (r.warnings.length ? ' ⚠ ' + r.warnings.join(' · ') : '') +
+                (r.capacity ? ' ⚠ ' + r.capacity : ''), !(r.warnings.length || r.capacityCritical));
           resetReadings();
         } else toast((r && r.error) || 'Failed', false);
       })
