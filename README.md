@@ -56,7 +56,9 @@ the new Spot-* detail columns; `Consolidated` is refreshed automatically.
 
 - **Month start:** nothing required — the month tab is auto-created by the
   first submission (or menu *Meter Register > New month sheet…*).
-- **Month end:** *Close month (lock)…* → download XLSX archive backup.
+- **Month end:** *Close month (lock)…* → download XLSX archive backup
+  (or *Export month to XLSX (Drive)…* — saves the month tab straight
+  into a "Meter Register Exports" Drive folder).
   (*Unlock month* exists for corrections.)
 - **Anytime:** *Master health check…* audits Master for duplicate RR
   Numbers, duplicate Account IDs, blank compulsory fields and leftover

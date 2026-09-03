@@ -65,6 +65,7 @@ function onOpen() {
     .addItem('New month sheet…', 'newMonthSheet')
     .addItem('Close month (lock)…', 'closeMonth')
     .addItem('Unlock month (corrections)…', 'unlockMonth')
+    .addItem('Export month to XLSX (Drive)…', 'exportMonth')
     .addItem('Refresh Consolidated', 'refreshConsolidatedMenu')
     .addItem('Refresh check formulas (all months)', 'refreshCheckFormulas')
     .addSeparator()
@@ -109,6 +110,44 @@ function rebuildWithConfirm() {
 }
 
 /* ================= menu actions ================= */
+
+// exports one month tab as XLSX into a "Meter Register Exports" Drive folder
+function exportMonth() {
+  var ss = SpreadsheetApp.getActive();
+  var ui = SpreadsheetApp.getUi();
+  var name = pickMonth_(ss, 'Export which month?');
+  if (!name) return;
+
+  try {
+    var blob = exportBlob_(ss, name);
+    var folder = getOrCreateFolder_();
+    var file = DriveApp.createFile(blob);
+    file.setName('Meter Register ' + name + ' (' +
+      Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd') + ').xlsx');
+    ui.alert('Exported "' + name + '"', 'Saved to Drive folder "Meter Register Exports":\n' +
+      file.getName() + '\n\nOpen: ' + file.getUrl(), ui.ButtonSet.OK);
+  } catch (err) {
+    ui.alert('Export failed: ' + (err && err.message || err));
+  }
+}
+
+function exportBlob_(ss, name) {
+  var url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() +
+    '/export?exportFormat=xlsx&gid=' + ss.getSheetByName(name).getSheetId();
+  var resp = UrlFetchApp.fetch(url, {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() !== 200) {
+    throw new Error('Export endpoint returned HTTP ' + resp.getResponseCode() + '.');
+  }
+  return resp.getBlob();
+}
+
+function getOrCreateFolder_() {
+  var it = DriveApp.getFoldersByName('Meter Register Exports');
+  return it.hasNext() ? it.next() : DriveApp.createFolder('Meter Register Exports');
+}
 
 function newMonthSheet() {
   var ss = SpreadsheetApp.getActive();
