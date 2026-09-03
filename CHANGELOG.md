@@ -9,6 +9,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Enter meter by RR Number *or* Account ID** (`apps-script/Code.gs`,
+  `apps-script/Index.html`, docs):
+  - Either field alone is sufficient (both optional individually, at
+    least one required). Form gains an Account ID input with its own
+    datalist; the meter-info card resolves from whichever field is
+    filled, live as you type.
+  - Both fields are matched against `Master` with the same
+    normalization: **case-insensitive and all spaces removed** —
+    leading, trailing *and* middle ("rr 12 34" = "RR1234").
+  - Hard-blocks (server-side, `validatePayload_` + `normalizeKey_`):
+    unknown RR · unknown Account ID · Account ID matching multiple
+    meters (ambiguous) · both entered but belonging to different
+    meters (mismatch).
+  - The row always stores the **resolved Master RR Number** (canonical
+    casing), so auto-lookups, ⚠ checks, duplicate detection and
+    Consolidated grouping keep working unchanged.
+  - Docs updated: requirements §5/§6 (hard rule 1), README validation
+    section, deployment step 13 (Account IDs must not repeat across
+    meters).
+  - `resetReadings()` now clears RR + Account ID after a save.
+
 - **Master schema expanded — 14 columns** (`apps-script/Code.gs`,
   `apps-script/Index.html`, docs):
   - New columns after RR Number: **Account ID, MRID, MD DAY, SF, Name**.
@@ -26,6 +47,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     Name instead of spot.
   - README, `docs/requirements.md` §4, `docs/deployment.md` step 13
     updated to the new layout.
+
+  *(Shipped in commit `884099d`.)*
   - Migration note: existing workbooks keep the old 7-column Master —
     re-run `setupWorkbook` (or the erasing *Rebuild* menu) after pasting
     the new code, then refill Master.
