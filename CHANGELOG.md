@@ -9,6 +9,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Analytics starter tab** (`apps-script/Code.gs`, README,
+  `docs/requirements.md`):
+  new `Analytics` tab — live QUERY pivots over `Consolidated`, no
+  stored data, read-only protected:
+  - Entries per inspector (all-time, desc).
+  - Entries per month (by Source Tab).
+  - Entries per meter status.
+  - Non-OK meters needing attention (status + RR, top 25).
+  - Spot Feeder / Spot DTC coverage (top 20 each).
+  Built by `setupWorkbook`; rebuilt any time via menu
+  *Meter Register > Rebuild Analytics tab*. `rebuildWithConfirm` now
+  also recreates it. Spec §10 updated — the "analytics deferred"
+  stance now points at this starter set.
+
 - **Auto-backup before Rebuild** (`apps-script/Code.gs`):
   *Rebuild all sheets (erases data!)* now saves a full-workbook XLSX
   ("Meter Register FULL BACKUP (date).xlsx") into the "Meter Register
