@@ -143,7 +143,12 @@
   }
 
   function onRR() {
-    var m = METERS[document.getElementById('rr').value.trim()];
+    var typed = document.getElementById('rr').value.trim();
+    var m = METERS[typed];
+    if (!m) {
+      var low = typed.toLowerCase();
+      for (var k in METERS) if (k.toLowerCase() === low) { m = METERS[k]; break; }
+    }
     var box = document.getElementById('meterInfo');
     if (!m) { box.style.display = 'none'; return; }
     box.textContent = 'Make: ' + (m.make || '—') + ' · S.No: ' + (m.serial || '—') +

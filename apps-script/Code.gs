@@ -271,13 +271,18 @@ function validatePayload_(ss, p) {
   var remarks = String(p.remarks || '').trim();
   if (remarks.length > 200) return { error: 'Remarks too long (max 200 chars).' };
 
-  // hard rule 1: RR must exist in Master
+  // hard rule 1: RR must exist in Master (case-insensitive; store Master's casing)
   var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 1).getDisplayValues();
-  var found = false;
-  for (var j = 0; j < mv.length; j++) if (mv[j][0].trim() === rr) { found = true; break; }
-  if (!found) return { error: 'Unknown RR Number "' + rr + '" - add it to Master first.' };
+  var canonical = null;
+  for (var j = 0; j < mv.length; j++) {
+    if (mv[j][0].trim() && mv[j][0].trim().toLowerCase() === rr.toLowerCase()) {
+      canonical = mv[j][0].trim();
+      break;
+    }
+  }
+  if (!canonical) return { error: 'Unknown RR Number "' + rr + '" - add it to Master first.' };
 
-  return { values: { date: d, time: time, rr: rr, ckwh: ckwh, prk: prk, b: b, bw: bw, pf: pf, remarks: remarks } };
+  return { values: { date: d, time: time, rr: canonical, ckwh: ckwh, prk: prk, b: b, bw: bw, pf: pf, remarks: remarks } };
 }
 
 // mirrors spec §6 flag rules for immediate feedback (sheet formulas re-check anyway)
@@ -297,8 +302,9 @@ function computeWarnings_(ss, sh, row, tabName, v, who) {
     var lr = Math.max(con.getLastRow(), 2);
     var dv = con.getRange(2, 4, lr - 1, 2).getDisplayValues(); // D=rr, E=ckwh
     var maxC = null;
+    var rrLower = v.rr.toLowerCase();
     for (var k = 0; k < dv.length; k++) {
-      if (dv[k][0].trim() === v.rr && dv[k][1] !== '') {
+      if (dv[k][0].trim().toLowerCase() === rrLower && dv[k][1] !== '') {
         var c = parseFloat(dv[k][1]);
         if (!isNaN(c) && (maxC === null || c > maxC)) maxC = c;
       }
@@ -310,7 +316,7 @@ function computeWarnings_(ss, sh, row, tabName, v, who) {
     var pv = sh.getRange(2, 1, row - 2, 4).getDisplayValues(); // A date,C by,D rr
     var dstr = Utilities.formatDate(v.date, ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
     for (var m = 0; m < pv.length; m++) {
-      if (pv[m][3].trim() === v.rr &&
+      if (pv[m][3].trim().toLowerCase() === v.rr.toLowerCase() &&
           toISO_(pv[m][0]) === dstr &&
           pv[m][2].trim() === who) w.push('Duplicate entry');
     }
