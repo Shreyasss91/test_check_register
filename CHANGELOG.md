@@ -7,6 +7,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Optional "Meter details" collapsible section in the form**
+  (`apps-script/Index.html`, `apps-script/Code.gs`, docs):
+  - Same pattern as *Block readings*: a closed `<details>` under the
+    RR/Account row that expands to 7 inputs — Meter Constant, Make,
+    Serial No, Phases, DTC, Feeder, Location.
+  - Fields are **pre-filled from Master** when the RR/Account resolves
+    (switching meters re-fills; the inspector's own edits are kept), so
+    the usual flow is just verify-and-submit; corrections can be typed
+    at the spot.
+  - Stored in **separate Spot-* columns** (AB..AH: Spot Constant, Spot
+    Make, Spot Serial No, Spot Phases, Spot DTC, Spot Feeder, Spot
+    Location) — Master auto-lookups (U..Y) are untouched, so spot-entered
+    values vs Master can be compared later. Only fields with a value are
+    written (≤ 50 chars each, server-enforced).
+  - `Consolidated` now stacks the Spot columns + RR Key + Source Tab
+    (34 cols); `Refresh check formulas (all months)` adds the new
+    headers/columns to existing month tabs (data preserved); upgrade
+    notes in README/deployment guide updated.
+
 ### Changed
 
 - **Submit UX: toast + full form clear on every path**
