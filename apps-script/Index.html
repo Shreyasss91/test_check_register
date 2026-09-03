@@ -48,7 +48,7 @@
   <span class="chip" id="who">…</span>
   <span id="net" class="chip on">online</span>
 </header>
-<div id="queueBar" onclick="syncQueue()">⚠ <span id="qCount">0</span> saved offline — tap to send</div>
+<div id="queueBar" onclick="syncQueue(true)">⚠ <span id="qCount">0</span> saved offline — tap to send<span id="failedNote" style="display:none"> · <span id="fCount">0</span> rejected — tap to retry</span></div>
 
 <main id="app">
   <div class="center" id="loading">Loading…</div>
@@ -278,13 +278,23 @@
   }
 
   /* ---------- offline queue ---------- */
+  var QFKEY = 'mrq_failed_v1';
   function qGet() { try { return JSON.parse(localStorage.getItem(QKEY)) || []; } catch (e) { return []; } }
   function qSet(q) { localStorage.setItem(QKEY, JSON.stringify(q)); renderQ(); }
+  function qFailGet() { try { return JSON.parse(localStorage.getItem(QFKEY)) || []; } catch (e) { return []; } }
+  function qFailSet(q) { localStorage.setItem(QFKEY, JSON.stringify(q)); renderQ(); }
 
   function enqueue(p) { var q = qGet(); q.push({ at: new Date().toISOString(), p: p }); qSet(q); }
 
-  function syncQueue() {
+  // send failed entries first (manual retry via bar tap), then the live queue.
+  // a server-REJECTED entry is parked in the failed list so it never blocks
+  // the rest of the queue (poison pill), and is visible in the yellow bar.
+  function syncQueue(retryFailed) {
     if (!navigator.onLine || submitting) return;
+    if (retryFailed) {
+      var fq = qFailGet();
+      if (fq.length) { qFailSet(fq.slice(1).concat(qGet())); qSet([]); }
+    }
     var q = qGet();
     if (!q.length) return;
     submitting = true;
@@ -292,8 +302,19 @@
     google.script.run
       .withSuccessHandler(function (r) {
         submitting = false;
-        if (r && r.ok) { q.shift(); qSet(q); toast('Sent 1 saved entry ✓', true); if (q.length) syncQueue(); }
-        else { qSet(q); toast((r && r.error) || 'Server rejected a saved entry', false); }
+        if (r && r.ok) {
+          q.shift(); qSet(q);
+          toast('Sent 1 saved entry ✓', true);
+          if (q.length) syncQueue();
+        } else {
+          var bad = q.shift(); // park the rejected entry — don't block the rest
+          qSet(q);
+          var fq = qFailGet();
+          fq.push({ at: new Date().toISOString(), p: bad.p, why: (r && r.error) || 'rejected' });
+          qFailSet(fq);
+          toast('Rejected: ' + ((r && r.error) || 'saved separately'), false);
+          if (q.length) syncQueue();
+        }
       })
       .withFailureHandler(function () { submitting = false; }) // still offline - retry later
       .submitEntry(item.p);
@@ -302,9 +323,13 @@
   function tick() { refreshNetBadge(); syncQueue(); }
 
   function renderQ() {
-    var q = qGet(), bar = document.getElementById('queueBar');
-    bar.style.display = q.length ? 'block' : 'none';
-    document.getElementById('qCount').textContent = q.length;
+    var q = qGet(), fq = qFailGet(), bar = document.getElementById('queueBar');
+    var total = q.length + fq.length;
+    bar.style.display = total ? 'block' : 'none';
+    document.getElementById('qCount').textContent = q.length + (fq.length ? '+' + fq.length + ' held' : '');
+    var note = document.getElementById('failedNote');
+    note.style.display = fq.length ? 'inline' : 'none';
+    document.getElementById('fCount').textContent = fq.length;
   }
 
   /* ---------- misc ---------- */
