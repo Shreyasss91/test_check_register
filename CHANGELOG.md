@@ -9,6 +9,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Auto-backup before Rebuild** (`apps-script/Code.gs`):
+  *Rebuild all sheets (erases data!)* now saves a full-workbook XLSX
+  ("Meter Register FULL BACKUP (date).xlsx") into the "Meter Register
+  Exports" Drive folder **before** deleting anything. If the backup
+  fails, the rebuild is aborted unless explicitly confirmed to proceed
+  unprotected; the completion dialog names the saved backup file.
+
 - **Month export menu item** (`apps-script/Code.gs`, README):
   new *Meter Register > Export month to XLSX (Drive)…* — one-click
   archive of any month tab. Fetches the tab via the Sheets export
