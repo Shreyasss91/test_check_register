@@ -9,6 +9,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **⚠-Checks sheet formulas normalized** (`apps-script/Code.gs`, docs):
+  previously only the server-side (JavaScript) checks ignored case and
+  spaces — the in-sheet ⚠ column formulas (unknown-RR `COUNTIF`,
+  history-max `MAXIFS`, duplicate `COUNTIFS`, Master `VLOOKUP`s) compared
+  RR Numbers textually, so hand-edited or legacy rows with variant
+  casing/spacing could raise false "Unknown RR" flags or silently miss
+  history/duplicate warnings.
+  - New hidden **`_Keys` tab** (`refreshKeys_`): auto-generated live
+    mirror of Master — normalized RR key plus Constant/Make/Serial/Phases;
+    all month-tab lookups go through it.
+  - New hidden **key column AA** in each month tab:
+    `LOWER(SUBSTITUTE(RR," ",""))`; every check formula compares keys
+    instead of raw RR text.
+  - `Consolidated` now carries the RR Key column (Z) + Source Tab (AA);
+    month-tab history checks match against it.
+  - New menu item **Refresh check formulas (all months)**
+    (`refreshCheckFormulas`) to rewrite existing month tabs with the
+    normalized formulas — new tabs get them automatically.
+  - `setupWorkbook`/rebuild handle `_Keys` (created, hidden, protected);
+    deployment guide gains the upgrade step; README/spec document the
+    hidden tab. *(Shipped in commit `ef5993e`'s follow-up — see git log.)*
+
 - **Enter meter by RR Number *or* Account ID** (`apps-script/Code.gs`,
   `apps-script/Index.html`, docs):
   - Either field alone is sufficient (both optional individually, at
@@ -29,6 +51,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     section, deployment step 13 (Account IDs must not repeat across
     meters).
   - `resetReadings()` now clears RR + Account ID after a save.
+
+  *(Shipped in commit `ef5993e`.)*
 
 - **Master schema expanded — 14 columns** (`apps-script/Code.gs`,
   `apps-script/Index.html`, docs):
