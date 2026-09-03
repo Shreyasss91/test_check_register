@@ -83,15 +83,25 @@
       return;
     }
     document.getElementById('who').textContent = r.user.name;
-    r.meters.forEach(function (m) { METERS[m.rr] = m; });
+    r.meters.forEach(function (m) {
+      METERS[normKey(m.rr)] = m;
+      if (m.accountId) METERS[normKey(m.accountId)] = m;
+    });
 
-    var dls = document.createElement('datalist'); dls.id = 'rrList';
+    var dlsRR = document.createElement('datalist'); dlsRR.id = 'rrList';
+    var dlsAC = document.createElement('datalist'); dlsAC.id = 'acList';
     r.meters.forEach(function (m) {
       var o = document.createElement('option');
       o.value = m.rr; o.label = m.name ? m.name + ' · ' + m.make : m.make;
-      dls.appendChild(o);
+      dlsRR.appendChild(o);
+      if (m.accountId) {
+        var oa = document.createElement('option');
+        oa.value = m.accountId; oa.label = m.name ? m.name + ' · ' + m.make : m.make;
+        dlsAC.appendChild(oa);
+      }
     });
-    document.body.appendChild(dls);
+    document.body.appendChild(dlsRR);
+    document.body.appendChild(dlsAC);
 
     var today = localISO(new Date());
     var now = new Date();
@@ -102,8 +112,12 @@
           '<div><label>Time</label><input type="time" id="time" value="' +
             pad(now.getHours()) + ':' + pad(now.getMinutes()) + '"></div>' +
         '</div>' +
-        '<label>RR Number <small class="req">*</small></label>' +
-        '<input list="rrList" id="rr" autocomplete="off" placeholder="pick or type">' +
+        '<div class="row">' +
+          '<div><label>RR Number</label>' +
+          '<input list="rrList" id="rr" autocomplete="off" placeholder="pick or type"></div>' +
+          '<div><label>Account ID</label>' +
+          '<input list="acList" id="acct" autocomplete="off" placeholder="either one is enough"></div>' +
+        '</div>' +
         '<div id="meterInfo"></div>' +
       '</div>' +
 
@@ -123,7 +137,8 @@
       '<div class="card"><label>Remarks (optional)</label>' +
       '<textarea id="remarks" rows="2" maxlength="200"></textarea></div>';
 
-    document.getElementById('rr').addEventListener('change', onRR);
+    document.getElementById('rr').addEventListener('input', onRR);
+    document.getElementById('acct').addEventListener('input', onRR);
     document.getElementById('btn').style.display = 'block';
     renderQ();
   }
@@ -142,13 +157,12 @@
     return s;
   }
 
+  function normKey(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
+
   function onRR() {
-    var typed = document.getElementById('rr').value.trim();
-    var m = METERS[typed];
-    if (!m) {
-      var low = typed.toLowerCase();
-      for (var k in METERS) if (k.toLowerCase() === low) { m = METERS[k]; break; }
-    }
+    var rrV = document.getElementById('rr').value.trim();
+    var acV = document.getElementById('acct').value.trim();
+    var m = (rrV && METERS[normKey(rrV)]) || (acV && METERS[normKey(acV)]) || null;
     var box = document.getElementById('meterInfo');
     if (!m) { box.style.display = 'none'; return; }
     box.textContent = 'Name: ' + (m.name || '—') + ' · Acct: ' + (m.accountId || '—') +
@@ -192,7 +206,7 @@
     var g = function (id) { return document.getElementById(id).value.trim(); };
     var p = {
       date: g('date'), time: g('time'),
-      rr: g('rr'), ckwh: g('ckwh'), prk: g('prk'),
+      rr: g('rr'), accountId: g('acct'), ckwh: g('ckwh'), prk: g('prk'),
       pf: g('pf'), remarks: g('remarks'),
       blocksKwh: [], bkw: []
     };
@@ -202,7 +216,7 @@
     }
     if (!p.date)   return err('Date is required');
     if (!p.time)   return err('Time is required');
-    if (!p.rr)     return err('Pick an RR Number');
+    if (!p.rr && !p.accountId) return err('Enter RR Number or Account ID');
     if (p.ckwh === '') return err('CKWh reading is required');
     if (p.prk === '')  return err('Pr kW reading is required');
     return p;
@@ -212,7 +226,7 @@
   function btn(d) { document.getElementById('btn').disabled = d; }
 
   function resetReadings() {
-    ['ckwh','prk','pf','remarks'].forEach(function (id) { document.getElementById(id).value = ''; });
+    ['ckwh','prk','pf','remarks','rr','acct'].forEach(function (id) { document.getElementById(id).value = ''; });
     for (var i = 1; i <= 6; i++) {
       document.getElementById('bk' + i).value = '';
       document.getElementById('bw' + i).value = '';

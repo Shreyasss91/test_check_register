@@ -55,7 +55,9 @@ After any code change: *Deploy → Manage deployments → ✏ → New version*.
 
 ## Validation
 
-Hard-blocked at Submit: unknown RR Number · PF outside 0–1.
+Hard-blocked at Submit: unknown RR Number/Account ID · PF outside 0–1.
+Enter RR Number or Account ID (either one; matching ignores case and
+spaces; both entered must agree).
 Flagged in the ⚠ Checks column: CKWh below all-history max · block-sum off
 by > ±1 kWh · wrong-month date · duplicates · missing PF.
 

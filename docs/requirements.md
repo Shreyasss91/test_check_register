@@ -73,7 +73,7 @@ No per-person tabs anymore.
 | Date | pre-filled | device date, editable; dd-mm-yyyy |
 | Time | pre-filled | device time at spot, editable; 12-h `hh:mm am/pm` |
 | Entered By | **auto** | resolved from Google login email via `Team` tab |
-| RR Number | dropdown | fed by `Master`; same meter may be recorded by multiple people |
+| RR Number / Account ID | dropdown | enter either one; fed by `Master`; resolved meter may be recorded by multiple people |
 | Reading (CKWh) | manual | main cumulative kWh |
 | B1–B6 kWh | optional | per-block readings where applicable |
 | Reading (Pr kW) | manual | present demand |
@@ -92,7 +92,12 @@ Out of scope: photos, GPS, signatures, billing calculations.
 
 Hard-blocked (input rejected):
 
-1. RR Number must exist in `Master`.
+1. RR Number **or** Account ID must be entered (either one suffices); the
+   entered value(s) must resolve to a meter in `Master`. Matching is
+   case-insensitive and ignores spaces (leading, trailing and middle).
+   If both are entered they must belong to the same meter. An Account
+   ID matching multiple meters is rejected as ambiguous. The resolved
+   Master RR Number is what gets stored in the row.
 2. PF must be between 0 and 1.
 
 Flagged inline (⚠ column, entry still accepted):

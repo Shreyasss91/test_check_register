@@ -253,9 +253,11 @@ function validatePayload_(ss, p) {
   var mTime = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(p.time || ''));
   if (mTime) time = new Date(2000, 0, 1, Number(mTime[1]), Number(mTime[2]));
 
-  var rr = String(p.rr || '').trim();
-  if (!rr) return { error: 'RR Number is required.' };
-  if (rr.length > 50) return { error: 'RR Number too long.' };
+  var rrRaw = String(p.rr || '').trim();
+  var acRaw = String(p.accountId || '').trim();
+  if (rrRaw.length > 50) return { error: 'RR Number too long.' };
+  if (acRaw.length > 50) return { error: 'Account ID too long.' };
+  if (!rrRaw && !acRaw) return { error: 'Enter RR Number or Account ID - at least one is required.' };
 
   var ckwh = num_(p.ckwh);
   if (ckwh === '') return { error: 'Reading (CKWh) is required.' };
@@ -277,18 +279,49 @@ function validatePayload_(ss, p) {
   var remarks = String(p.remarks || '').trim();
   if (remarks.length > 200) return { error: 'Remarks too long (max 200 chars).' };
 
-  // hard rule 1: RR must exist in Master (case-insensitive; store Master's casing)
-  var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 1).getDisplayValues();
-  var canonical = null;
+  // hard rule 1: RR or Account ID must resolve to exactly one Master row
+  // (normalized match: case-insensitive, all spaces removed)
+  var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 2).getDisplayValues();
+  var canon = {}; // normalized key -> meter info
   for (var j = 0; j < mv.length; j++) {
-    if (mv[j][0].trim() && mv[j][0].trim().toLowerCase() === rr.toLowerCase()) {
-      canonical = mv[j][0].trim();
-      break;
+    var mRR = mv[j][0].trim();
+    if (!mRR) continue;
+    var info = { rr: mRR, acc: mv[j][1].trim() };
+    if (!canon[normalizeKey_(mRR)]) canon[normalizeKey_(mRR)] = info;
+
+    if (info.acc) {
+      var an = normalizeKey_(info.acc);
+      if (!canon[an]) canon[an] = info;
+      else if (canon[an].rr !== mRR) canon[an].ambiguous = true;
     }
   }
-  if (!canonical) return { error: 'Unknown RR Number "' + rr + '" - add it to Master first.' };
 
-  return { values: { date: d, time: time, rr: canonical, ckwh: ckwh, prk: prk, b: b, bw: bw, pf: pf, remarks: remarks } };
+  var hitRR = rrRaw ? canon[normalizeKey_(rrRaw)] : null;
+  var hitAC = acRaw ? canon[normalizeKey_(acRaw)] : null;
+
+  if (rrRaw && !hitRR) {
+    return { error: 'Unknown RR Number "' + rrRaw + '" - add it to Master first.' };
+  }
+  if (acRaw && !hitAC) {
+    return { error: 'Unknown Account ID "' + acRaw + '" - add it to Master first.' };
+  }
+  if (acRaw && hitAC.ambiguous) {
+    return { error: 'Account ID "' + acRaw + '" matches multiple meters in Master - it must be unique.' };
+  }
+  var rr;
+  if (rrRaw && acRaw) {
+    if (hitRR.rr !== hitAC.rr) {
+      return { error: 'RR Number and Account ID belong to different meters (' +
+        hitRR.rr + ' vs ' + hitAC.rr + '). Fix one of them.' };
+    }
+    rr = hitRR.rr;
+  } else if (rrRaw) {
+    rr = hitRR.rr;
+  } else {
+    rr = hitAC.rr;
+  }
+
+  return { values: { date: d, time: time, rr: rr, ckwh: ckwh, prk: prk, b: b, bw: bw, pf: pf, remarks: remarks } };
 }
 
 // mirrors spec §6 flag rules for immediate feedback (sheet formulas re-check anyway)
@@ -502,6 +535,11 @@ function parseISODate_(s) {
   if (!m) return null;
   var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   return isNaN(d.getTime()) ? null : d;
+}
+
+// case-insensitive + all spaces (leading/trailing/middle) removed
+function normalizeKey_(s) {
+  return String(s || '').replace(/\s+/g, '').toLowerCase();
 }
 
 function num_(x) {
