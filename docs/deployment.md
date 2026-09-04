@@ -37,8 +37,10 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
      `setupWorkbook` once (creates the `Configuration` tab with the
      current meter-status list in column A, and the `Guests` tab), then
      menu *Meter Register > Refresh check formulas (all months)* to
-     rewrite the ⚠-check formulas on existing month tabs with the
-     normalized versions and add the Spot-* detail columns. Month tabs
+     rewrite the ⚠-check formulas and the hidden RR-key columns on
+     existing month tabs with the
+     special-character-aware normalized versions and add the Spot-*
+     detail columns. Month tabs
      created after the upgrade get them automatically. Existing
      meter-status dropdowns are re-pointed at `Configuration` column A
      (live from then on); stored status values are untouched. The
@@ -121,4 +123,5 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 | New Configuration list not in month tabs | Run menu *Meter Register > Apply configuration changes (all months)* — or just wait: the next submit auto-adds the column |
 | "Unknown meter status" on submit | The submitted status isn't in `Configuration` column A (typo, or the form tab was open since before your edit — reload the form) |
 | Guest rows still show `Name{email}` after adding to Team | Run menu *Meter Register > Sync guest names from Team* (also clears them from `Guests`) |
-| `Name{email}` entries flagged by the Entered-By dropdown | Expected: the dropdown warns for values outside Team but never blocks — guest entries are legitimate |
+    | `Name{email}` entries flagged by the Entered-By dropdown | Expected: the dropdown warns for values outside Team but never blocks — guest entries are legitimate |
+    | Meter still "Unknown RR" or history/duplicate flags look wrong after upgrading to v1.8.0 | Re-run menu *Meter Register > Refresh check formulas (all months)* — it now also rewrites the hidden `_Keys` mirror so both key generations match |

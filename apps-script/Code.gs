@@ -22,7 +22,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.7.0', // bump on every deploy; shown in the form footer
+  version: 'v1.8.0', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 1000,
   maxTeamRows: 200,
@@ -572,6 +572,7 @@ function refreshCheckFormulas() {
   var ss = SpreadsheetApp.getActive();
   ensureConfiguration_(ss);
   syncConfigColumns_(ss);
+  refreshKeys_(ss); // re-point the hidden key mirror at the current normalization
   var months = monthSheets_(ss);
   months.forEach(function (name) {
     var sh = ss.getSheetByName(name);
@@ -1111,7 +1112,7 @@ function validatePayload_(ss, p) {
   });
 
   // hard rule 1: RR or Account ID must resolve to exactly one Master row
-  // (normalized match: case-insensitive, all spaces removed)
+  // (normalized match: case-insensitive, spaces and special characters removed)
   var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 2).getDisplayValues();
   var canon = {}; // normalized key -> meter info
   for (var j = 0; j < mv.length; j++) {
@@ -1172,9 +1173,9 @@ function computeWarnings_(ss, sh, row, tabName, v, who) {
     var lr = Math.max(con.getLastRow(), 2);
     var dv = con.getRange(2, 4, lr - 1, 2).getDisplayValues(); // D=rr, E=ckwh
     var maxC = null;
-    var rrLower = v.rr.toLowerCase();
+    var rrN = normalizeKey_(v.rr);
     for (var k = 0; k < dv.length; k++) {
-      if (dv[k][0].trim().toLowerCase() === rrLower && dv[k][1] !== '') {
+      if (normalizeKey_(dv[k][0]) === rrN && dv[k][1] !== '') {
         var c = parseFloat(dv[k][1]);
         if (!isNaN(c) && (maxC === null || c > maxC)) maxC = c;
       }
@@ -1186,7 +1187,7 @@ function computeWarnings_(ss, sh, row, tabName, v, who) {
     var pv = sh.getRange(2, 1, row - 2, 4).getDisplayValues(); // A date,C by,D rr
     var dstr = Utilities.formatDate(v.date, ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
     for (var m = 0; m < pv.length; m++) {
-      if (pv[m][3].trim().toLowerCase() === v.rr.toLowerCase() &&
+      if (normalizeKey_(pv[m][3]) === rrN &&
           toISO_(pv[m][0]) === dstr &&
           pv[m][2].trim() === who) w.push('Duplicate entry');
     }
@@ -1256,6 +1257,10 @@ function buildMonthSheet_(ss, name) {
   sh.setFrozenRows(1);
   sh.setFrozenColumns(2);
 
+  // keep the _Keys mirror's normalization in lockstep with the tab's key
+  // formulas (both must be the same generation or every lookup breaks)
+  refreshKeys_(ss);
+
   sh.getRange('A2:A' + (n + 1)).setNumberFormat('dd-mm-yyyy');
   sh.getRange('B2:B' + (n + 1)).setNumberFormat('hh:mm am/pm');
   sh.getRange('E2:R' + (n + 1)).setNumberFormat('#,##0.00');
@@ -1316,10 +1321,11 @@ function addValidations_(sh, n) {
 
 /* V..Z auto lookups · AA ⚠ checks · AB hidden normalized RR key · AC..AI spot details.
    All sheet-side RR comparisons (master lookup, unknown-RR, history-max,
-   duplicate) go through the normalized key (LOWER + all spaces removed),
-   matching the server-side normalizeKey_() — so hand-edited or legacy rows
-   with variant casing/spacing are checked identically. The drift check
-   flags Spot-* fields that disagree with the Master mirror (_Keys). */
+   duplicate) go through the normalized key (LOWER + everything except
+   letters/digits removed), matching the server-side normalizeKey_() — so
+   hand-edited or legacy rows with variant casing/spacing/punctuation are
+   checked identically. The drift check flags Spot-* fields that disagree
+   with the Master mirror (_Keys). */
 function autoFormulas_(n, tab) {
   var f = [];
   for (var i = 0; i < n; i++) {
@@ -1350,7 +1356,7 @@ function autoFormulas_(n, tab) {
         pair('$AH' + r, 7) + '&' +
         pair('$AI' + r, 8) +
       ')',
-      '=IF($D' + r + '="","",LOWER(SUBSTITUTE($D' + r + '," ","")))'
+      '=IF($D' + r + '="","",LOWER(REGEXREPLACE($D' + r + ',"[^A-Za-z0-9]","")))'
     ]);
   }
   return f;
@@ -1359,13 +1365,14 @@ function autoFormulas_(n, tab) {
 /* hidden helper tab: live mirror of Master — A = normalized RR key,
    B..E = Meter Constant / Make / Serial No / Phases, F..H = DTC / Feeder /
    Location. Month tabs look up through here so normalization is computed
-   once, not per cell. */
+   once, not per cell. The key formula strips everything except letters and
+   digits (spaces AND special characters), matching normalizeKey_(). */
 function refreshKeys_(ss) {
   var sh = ss.getSheetByName('_Keys') || ss.insertSheet('_Keys');
   var last = CONFIG.maxMasterRows + 1;
   sh.getRange(1, 1, 1, 8).setValues([['RR Key', 'Meter Constant', 'Meter Make',
     'Meter Serial No', 'Phases', 'DTC', 'Feeder', 'Location']]);
-  sh.getRange('A2').setFormula('=ARRAYFORMULA(IF(Master!A2:A' + last + '="","",LOWER(SUBSTITUTE(Master!A2:A' + last + '," ",""))))');
+  sh.getRange('A2').setFormula('=ARRAYFORMULA(IF(Master!A2:A' + last + '="","",LOWER(REGEXREPLACE(Master!A2:A' + last + ',"[^A-Za-z0-9]",""))))');
   sh.getRange('B2').setFormula('=ARRAYFORMULA(IF(Master!G2:G' + last + '="","",Master!G2:G' + last + '))');
   sh.getRange('C2').setFormula('=ARRAYFORMULA(IF(Master!H2:H' + last + '="","",Master!H2:H' + last + '))');
   sh.getRange('D2').setFormula('=ARRAYFORMULA(IF(Master!I2:I' + last + '="","",Master!I2:I' + last + '))');
@@ -1375,7 +1382,11 @@ function refreshKeys_(ss) {
   sh.getRange('H2').setFormula('=ARRAYFORMULA(IF(Master!M2:M' + last + '="","",Master!M2:M' + last + '))');
   styleHeader_(sh, 8);
   sh.setFrozenRows(1);
-  protectStrict_(sh.protect(), 'Auto-generated key mirror - do not edit');
+  // guard like refreshConsolidated_: re-running must not stack duplicate
+  // sheet protections (it now runs on every month-tab build too)
+  if (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) {
+    protectStrict_(sh.protect(), 'Auto-generated key mirror - do not edit');
+  }
   sh.hideSheet();
   return sh;
 }
@@ -1461,9 +1472,9 @@ function parseISODate_(s) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// case-insensitive + all spaces (leading/trailing/middle) removed
+// case-insensitive + keeps letters/digits only (all spaces and special characters removed)
 function normalizeKey_(s) {
-  return String(s || '').replace(/\s+/g, '').toLowerCase();
+  return String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
 }
 
 function num_(x) {

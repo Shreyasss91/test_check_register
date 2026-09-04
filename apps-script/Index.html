@@ -228,7 +228,8 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  function normKey(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
+  // matches the server-side normalizeKey_(): letters/digits only, lowercased
+  function normKey(s) { return String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase(); }
 
   function onRR() {
     var rrV = document.getElementById('rr').value.trim();

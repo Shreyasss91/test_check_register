@@ -99,7 +99,9 @@ Hard-blocked (input rejected):
 
 1. RR Number **or** Account ID must be entered (either one suffices); the
    entered value(s) must resolve to a meter in `Master`. Matching is
-   case-insensitive and ignores spaces (leading, trailing and middle).
+   case-insensitive and ignores spaces and special characters (leading,
+   trailing and middle — only letters and digits are compared, so
+   `"RR-12 34"`, `"rr 12 34"` and `"RR1234"` all match).
    If both are entered they must belong to the same meter. An Account
    ID matching multiple meters is rejected as ambiguous. The resolved
    Master RR Number is what gets stored in the row.
@@ -121,10 +123,11 @@ Flagged inline (⚠ column, entry still accepted):
 Enforcement: hard-blocks run **server-side in the web app** on Submit
 (rejected with a message); flag-rules are written into the row's ⚠ column
 by the sheet formulas as before. Both layers compare RR Numbers
-**normalized** (case-insensitive, all spaces removed) — the sheet side
+**normalized** (case-insensitive; spaces *and* special characters removed —
+letters/digits only) — the sheet side
 does this through a hidden auto-generated `_Keys` tab plus a hidden key
 column (AA) in each month tab, so hand-edited or legacy rows with variant
-casing/spacing are checked identically to the server.
+casing/spacing/punctuation are checked identically to the server.
 
 ## 7. Entry web app (Apps Script)
 
@@ -194,6 +197,7 @@ format keeps later pivots easy (Entered By, RR Number, month). One live
 | D22 | Extra config lists are stored in dynamic month-tab columns (36+ / AJ..), appended in lockstep on every month tab; append-only (a removed list keeps its data column) | zero-code extensibility while keeping the fixed core layout and the width-aligned Consolidated QUERY intact |
 | D23 | Unknown logins are guests, not rejections: name captured, rows recorded as `Name{email}`, e-mail logged in `Guests` | nobody is blocked at the spot; every entry stays traceable to a login |
 | D24 | Adding a guest to Team later: menu *Sync guest names from Team* rewrites their `Name{email}` rows to the exact Team name (and clears them from `Guests`) | guest history merges cleanly into the person's Team identity |
+| D25 | RR/Account-ID normalization strips everything except letters and digits (case-insensitive) — implemented identically server-side (`normalizeKey_`), client-side (`normKey`) and in the sheet key formulas (`_Keys` + month-tab key column) | typed, handwritten or legacy RR Numbers with stray punctuation/dashes/spacing never false-flag or double-count a meter |
 
 ## 12. Open questions
 

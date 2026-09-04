@@ -32,7 +32,7 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 | `YYYY-MM` | One per month; 1 000 rows ready; ⚠ Checks column flags issues |
 | `Consolidated` | All months stacked live, newest first |
 | `Analytics` | Live pivots: entries per inspector/month/status, non-OK meters, feeder/DTC coverage + one pivot per Configuration list |
-| `_Keys` | Hidden auto-generated helper: normalized RR keys for case/space-insensitive checks — do not edit |
+| `_Keys` | Hidden auto-generated helper: normalized RR keys (letters/digits only) for case/space/punctuation-insensitive checks — do not edit |
 
 ## Editing dropdown lists (no code needed)
 
@@ -117,11 +117,12 @@ refreshed automatically.
 ## Validation
 
 Hard-blocked at Submit: unknown RR Number/Account ID · PF outside 0–1.
-Enter RR Number or Account ID (either one; matching ignores case and
-spaces; both entered must agree).
+Enter RR Number or Account ID (either one; matching ignores case, spaces
+and special characters; both entered must agree).
 Flagged in the ⚠ Checks column: CKWh below all-history max · block-sum off
 by > ±1 kWh · wrong-month date · duplicates · missing PF. All RR matching
-(server **and** sheet formulas) ignores case and spaces.
+(server **and** sheet formulas) ignores case, spaces and special characters
+(`"RR-12 34"`, `"rr 12 34"` and `"RR1234"` are the same meter).
 
 ## Field tips (inspectors)
 

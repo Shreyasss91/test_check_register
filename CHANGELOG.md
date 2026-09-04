@@ -258,6 +258,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **RR/Account-ID normalization now strips special characters too**
+  (`apps-script/Code.gs`, `apps-script/Index.html`, README,
+  `docs/requirements.md`, `docs/deployment.md`):
+  - Matching previously ignored case and spaces (leading/trailing/
+    middle). It now ignores **every non-alphanumeric character** —
+    dashes, dots, slashes, hyphens, braces, etc. — so `"RR-12/34"`,
+    `"rr 12.34"` and `"RR1234"` all resolve to the same meter
+    (letters/digits only, lowercased). Typed, handwritten or legacy
+    RR Numbers with stray punctuation can no longer false-flag
+    "Unknown RR" or double-count a meter's history.
+  - Applied everywhere normalization lives, in lockstep:
+    server-side `normalizeKey_()` (hard-block resolution, Master
+    health-check duplicate detection, warning checks); client-side
+    `normKey()` in the form (live meter-info card, RR/Account
+    resolution, config dropdown IDs); the month-tab hidden key
+    column AB — now `LOWER(REGEXREPLACE(RR,"[^A-Za-z0-9]",""))` —
+    and the hidden `_Keys` mirror's key formula (both previously
+    `SUBSTITUTE(RR," ","")`).
+  - Two spots that compared RR text with only trim+lowercase were
+    brought onto the same key: the immediate-feedback history-max
+    check and the duplicate-entry check in `computeWarnings_` —
+    previously an RR stored/s typed with punctuation could silently
+    miss its own history or duplicate.
+  - `refreshCheckFormulas` now also rewrites the `_Keys` mirror
+    formula (calls `refreshKeys_`), so existing workbooks upgrading
+    get matching key generations on both sides of every lookup;
+    without it, old `_Keys` keys would mismatch the new month-tab
+    keys and every VLOOKUP would fail. `buildMonthSheet_` calls
+    `refreshKeys_` too, so the mirror self-heals even if nobody runs
+    the menu (new month tab → both sides rewritten to the current
+    generation); `refreshKeys_` no longer stacks duplicate sheet
+    protections on re-runs (guarded like `refreshConsolidated_`).
+  - Version bumped to v1.8.0. Spec: §6 rule 1 + enforcement note
+    updated, decision D25 added; deployment guide: upgrade note and
+    a troubleshooting row (stale keys after upgrade); README
+    validation section updated.
+  - **Upgrade:** paste both files, run `setupWorkbook` once, then
+    menu *Meter Register > Refresh check formulas (all months)*
+    (this now also refreshes `_Keys`), then deploy a new version.
+
 - **Submit UX: toast + full form clear on every path**
   (`apps-script/Index.html`):
   - Online success: toast now says "Saved ✓ row N (month) — form
