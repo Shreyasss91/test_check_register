@@ -26,10 +26,25 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 |---|---|
 | `Master` | Meter list: RR No, account ID, MRID, MD DAY, SF, name, constant, make, serial, phases, DTC, feeder, location |
 | `Team` | Inspectors: Email + Name (login → identity) |
+| `Configuration` | All dropdown lists — one **column** per list (header = name, values below). `Meter Status` (col A) drives the status dropdown; every other column auto-becomes an extra dropdown in the form + a dynamic month-tab column |
 | `YYYY-MM` | One per month; 1 000 rows ready; ⚠ Checks column flags issues |
 | `Consolidated` | All months stacked live, newest first |
-| `Analytics` | Live pivots: entries per inspector/month/status, non-OK meters, feeder/DTC coverage |
+| `Analytics` | Live pivots: entries per inspector/month/status, non-OK meters, feeder/DTC coverage + one pivot per Configuration list |
 | `_Keys` | Hidden auto-generated helper: normalized RR keys for case/space-insensitive checks — do not edit |
+
+## Editing dropdown lists (no code needed)
+
+- **Meter status:** edit the values in `Configuration` column A — add
+  "Replaced" between existing ones, fix a typo, reorder (the **first
+  value is the form's default**). The web form and every month tab's
+  dropdown pick it up live; nothing to re-run or redeploy.
+- **A brand-new dropdown** (e.g. Seal Type): add a *new column* in
+  `Configuration` with a header and its values. The form shows it as an
+  extra dropdown immediately; submitted values land in a new dynamic
+  column (AJ..) on every month tab — created on the first submit, or
+  right away via menu *Meter Register > Apply configuration changes
+  (all months)*. Consolidated and Analytics pick the column up too.
+- Append-only: removing a list never deletes its stored data column.
 
 ## Setup (one time, consolidator)
 
@@ -49,9 +64,11 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 After any code change: *Deploy → Manage deployments → ✏ → New version*.
 
 **Upgrading an existing workbook:** after pasting the new code, run
-`setupWorkbook` once, then menu *Meter Register > Refresh check formulas
-(all months)* — existing month tabs get the normalized ⚠ formulas plus
-the new Spot-* detail columns; `Consolidated` is refreshed automatically.
+`setupWorkbook` once (creates the `Configuration` tab), then menu
+*Meter Register > Refresh check formulas (all months)* — existing month
+tabs get the normalized ⚠ formulas, the Spot-* detail columns and the
+live status dropdown wired to `Configuration`; `Consolidated` is
+refreshed automatically.
 
 ## Monthly routine (consolidator)
 
@@ -64,6 +81,11 @@ the new Spot-* detail columns; `Consolidated` is refreshed automatically.
 - **Anytime:** *Master health check…* audits Master for duplicate RR
   Numbers, duplicate Account IDs, blank compulsory fields and leftover
   RR-SAMPLE rows.
+- **After editing `Configuration`:** nothing needed for value edits. After
+  adding a new list column: *Meter Register > Apply configuration changes
+  (all months)* adds the new column to every month tab immediately and
+  rebuilds Consolidated/Analytics (they also self-heal on the next
+  submit).
 - **Weekly digest (optional):** *Install weekly digest trigger (Mon
   8am)* emails you a summary every Monday — entries in the last 7 days
   (per inspector), flagged ⚠ rows, and month-tab capacity. *Send weekly

@@ -9,6 +9,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Configuration tab — sheet-driven dropdown lists (zero-code edits)**
+  (`apps-script/Code.gs`, `apps-script/Index.html`, README,
+  `docs/requirements.md`, `docs/deployment.md`):
+  - New **Configuration** tab: one column per dropdown list (row 1 =
+    list name, values below). Column A = `Meter Status`, seeded with
+    the previous hardcoded six values (order preserved, OK first =
+    default). Editing/adding values updates the web-form dropdown and
+    every month tab's column-U dropdown **live** — no code edit, re-run
+    or redeploy (month-tab validation now uses
+    `requireValueInRange` on the Configuration column; the form reads
+    the lists in `getBootstrap` on every load; submit validates against
+    the live list).
+  - **Extra config lists become real form fields and sheet columns:**
+    any *other* Configuration column renders as an extra optional
+    dropdown in the form ("Additional details" card); the chosen value
+    is stored in a dynamic month-tab column (36+ / AJ..) and flows
+    into Consolidated (widened QUERY blocks) and Analytics (one new
+    "Entries per \<list\>" pivot per list). Add a column in the sheet →
+    the form shows the dropdown on next load; the month-tab column is
+    created automatically by the next submit, or immediately via the
+    new menu item *Meter Register > Apply configuration changes (all
+    months)* (also rebuilds Consolidated + Analytics).
+  - Dynamic columns are appended **in lockstep** on every month tab
+    (canonical sequence = first-seen order on tabs + new list headers),
+    which the Consolidated QUERY requires (equal-width brace blocks);
+    strictly append-only — removing/renaming a Configuration list keeps
+    its stored data column (orphan) on every tab.
+  - Fallbacks keep old deployments working: a missing Configuration
+    tab/column A falls back to the built-in status list; `setupWorkbook`
+    builds the tab, `rebuildWithConfirm` knows it, and
+    `refreshCheckFormulas` re-points existing month tabs' status
+    dropdowns. `getBootstrap` keeps returning `meterStatuses` for
+    compatibility.
+  - Form: meter-status select is fully sheet-driven (first value =
+    default; no hardcoded `OK`), extra selects are HTML-escaped, and
+    `resetReadings()` resets selects to the first option instead of a
+    hardcoded value.
+  - Spec: D21/D22 added (Configuration-driven lists; dynamic append-only
+    columns), §4/§5/§6 updated; deployment guide gains the
+    Configuration step + troubleshooting rows; version bumped to
+    v1.6.0.
+
 - **Weekly digest email to the consolidator**
   (`apps-script/Code.gs`, README, `docs/deployment.md`):
   - `sendWeeklyDigest()` composes and mails a Monday summary:

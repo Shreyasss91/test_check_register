@@ -12,16 +12,26 @@
  *      paste apps-script/Index.html into it. Save.
  *   3. Run setupWorkbook() once (permissions).
  *   4. Fill Team (Email + Name) and Master. Delete RR-SAMPLE rows later.
+ *      The Configuration tab holds all dropdown lists (edit/add any time).
  *   5. Deploy > New deployment > Web app:
  *        Execute as: Me    Who has access: Anyone with a Google account
  *      Share that URL with inspectors. Re-deploy a NEW VERSION after edits.
  */
 
 var CONFIG = {
-  version: 'v1.5.0', // bump on every deploy; shown in the form footer
+  version: 'v1.6.0', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 1000,
   maxTeamRows: 200,
+  maxConfigValues: 100, // per Configuration column
+
+  // fixed month-tab layout: cols 1..35 (A..AI) - see the layout comment above
+  // onOpen(). Dynamic config columns (from the Configuration tab) are appended
+  // from col 36 (AJ) onwards, in lockstep on every month tab.
+  configFirstCol: 36,
+
+  meterStatusHeader: 'Meter Status', // the Configuration column backing col U
+  defaultMeterStatuses: ['OK', 'Defective', 'Seal broken', 'Meter stopped', 'Burnt', 'Not accessible'],
 
   masterHeaders: [
     'RR Number', 'Account ID', 'MRID', 'MD DAY', 'SF', 'Name',
@@ -49,7 +59,6 @@ var CONFIG = {
     'PF', 'Meter Status', 'Remarks',
     'Meter Constant', 'Meter Make', 'Meter Serial No', 'Phases', 'Month'
   ],
-  meterStatuses: ['OK', 'Defective', 'Seal broken', 'Meter stopped', 'Burnt', 'Not accessible'],
   // spot-entered meter details (optional, from the form's collapsible section)
   spotHeaders: [
     'Spot Constant', 'Spot Make', 'Spot Serial No', 'Spot Phases',
@@ -62,7 +71,92 @@ var MONTH_RE = /^\d{4}-\d{2}$/;
 /* Consolidated layout (QUERY output order): A..Z = 1..26 (Z=26 Meter
    Status), then month-tab AB..AI = 27..34 (27 RR Key, 28..30 Spot
    Const/Make/Serial, 31 Spot Phases, 32 Spot DTC, 33 Spot Feeder,
-   34 Spot Location), 35 = Source Tab. Analytics pivots query these. */
+   34 Spot Location), 35 = Source Tab, 36+ = dynamic config columns
+   (AJ.., one per extra Configuration-tab list). Analytics pivots query
+   these. */
+
+/* ================= configuration tab ================= */
+
+/* The Configuration tab is the single edit point for every dropdown list:
+   row 1 = header (the list's name, must be unique), each row below = one
+   value. The first value is the form's default.
+   - "Meter Status" backs month-tab column U (fixed layout).
+   - Every OTHER column is appended to all month tabs as a dynamic column
+     (from col 36 / AJ, in lockstep) and auto-rendered as an extra dropdown
+     in the web form. Adding values or whole new columns needs NO code edit
+     - just edit the sheet; the form picks them up on next load, and month
+     tabs get the new column on the next submit or via the
+     "Apply configuration changes" menu item.
+   - Append-only: renaming/removing a Configuration column never deletes
+     month-tab data (the orphan column is left as-is). */
+
+// builds the Configuration tab with the current status list (setup only)
+function buildConfiguration_(ss) {
+  var sh = resetSheet_(ss, 'Configuration');
+  applyConfigSheet_(ss, sh);
+  return sh;
+}
+
+// shared body used by both buildConfiguration_ and ensureConfiguration_
+function applyConfigSheet_(ss, sh) {
+  sh.getRange('A1').setValue(CONFIG.meterStatusHeader);
+  sh.getRange(2, 1, CONFIG.defaultMeterStatuses.length, 1).setValues(
+    CONFIG.defaultMeterStatuses.map(function (s) { return [s]; }));
+  styleHeader_(sh, 10); // style ahead so future column headers match
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, CONFIG.maxConfigValues, 26).setNumberFormat('@');
+  sh.setColumnWidth(1, 140);
+  if (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) {
+    protectStrict_(sh.protect(), 'Configuration - consolidator only');
+  }
+}
+
+// returns the existing Configuration tab, creating it (seeded) if missing -
+// keeps old deployments working on first call
+function ensureConfiguration_(ss) {
+  var sh = ss.getSheetByName('Configuration');
+  if (!sh) sh = buildConfiguration_(ss);
+  return sh;
+}
+
+/* reads every populated column of the Configuration tab:
+   { '<header>': ['v1', 'v2', ...], ... } - first value = form default.
+   Column A is expected to be Meter Status; a missing/empty tab falls back
+   to the built-in status list so the form never breaks. */
+function readConfigLists_(ss) {
+  var sh = ss.getSheetByName('Configuration');
+  var lists = {};
+  if (sh) {
+    var lastCol = sh.getLastColumn();
+    if (lastCol > 0) {
+      var vals = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), lastCol).getDisplayValues();
+      for (var c = 0; c < lastCol; c++) {
+        var header = String(vals[0][c] || '').trim();
+        if (!header) continue;
+        var list = [];
+        for (var r = 1; r < vals.length; r++) {
+          var v = String(vals[r][c] || '').trim();
+          if (!v) break; // stop at the first blank cell in the column
+          if (list.indexOf(v) === -1) list.push(v);
+        }
+        if (list.length) lists[header] = list;
+      }
+    }
+  }
+  if (!lists[CONFIG.meterStatusHeader]) {
+    lists[CONFIG.meterStatusHeader] = CONFIG.defaultMeterStatuses.slice();
+  }
+  return lists;
+}
+
+// dynamic (non-Meter-Status) config lists, header order preserved
+function dynamicConfigLists_(lists) {
+  var out = [];
+  Object.keys(lists).forEach(function (h) {
+    if (h !== CONFIG.meterStatusHeader) out.push({ header: h, values: lists[h] });
+  });
+  return out;
+}
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -73,6 +167,7 @@ function onOpen() {
     .addItem('Export month to XLSX (Drive)…', 'exportMonth')
     .addItem('Refresh Consolidated', 'refreshConsolidatedMenu')
     .addItem('Refresh check formulas (all months)', 'refreshCheckFormulas')
+    .addItem('Apply configuration changes (all months)…', 'applyConfigChangesMenu')
     .addItem('Rebuild Analytics tab', 'rebuildAnalyticsMenu')
     .addSeparator()
     .addItem('Send weekly digest now (test)', 'sendWeeklyDigestMenu')
@@ -90,10 +185,12 @@ function setupWorkbook() {
   var ss = SpreadsheetApp.getActive();
   buildMaster_(ss);
   buildTeam_(ss);
+  buildConfiguration_(ss);
   refreshKeys_(ss);
   if (monthSheets_(ss).length === 0) {
     buildMonthSheet_(ss, Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM'));
   }
+  syncConfigColumns_(ss);
   refreshConsolidated_(ss);
   refreshAnalytics_(ss);
 }
@@ -129,7 +226,7 @@ function rebuildWithConfirm() {
   }
 
   var tmp = null;
-  var known = function (n) { return MONTH_RE.test(n) || /^(Master|Team|Consolidated|_Keys|Analytics)$/.test(n); };
+  var known = function (n) { return MONTH_RE.test(n) || /^(Master|Team|Configuration|Consolidated|_Keys|Analytics)$/.test(n); };
   if (ss.getSheets().every(function (s) { return known(s.getName()); })) tmp = ss.insertSheet('temp-rebuild');
   ss.getSheets().forEach(function (s) {
     var n = s.getName();
@@ -333,6 +430,8 @@ function refreshConsolidatedMenu() {
 // rewrites normalized-check formulas + spot headers on every month tab (incl. old ones)
 function refreshCheckFormulas() {
   var ss = SpreadsheetApp.getActive();
+  ensureConfiguration_(ss);
+  syncConfigColumns_(ss);
   var months = monthSheets_(ss);
   months.forEach(function (name) {
     var sh = ss.getSheetByName(name);
@@ -340,7 +439,118 @@ function refreshCheckFormulas() {
     sh.getRange(1, 29, 1, CONFIG.spotHeaders.length).setValues([CONFIG.spotHeaders]);
     sh.getRange(2, 22, CONFIG.prefillRows, 7).setFormulas(autoFormulas_(CONFIG.prefillRows, name));
   });
+  refreshConsolidated_(ss);
   SpreadsheetApp.getUi().alert('Check formulas refreshed on ' + months.length + ' month tab(s).');
+}
+
+/* Applies Configuration-tab edits to every month tab + the views that
+   depend on them: appends missing dynamic columns (header, live dropdown
+   validation wired to the Configuration column, text format, protected
+   header), then rebuilds Consolidated and Analytics. Editing values in a
+   list needs neither this nor any code - month-tab dropdowns read the
+   Configuration range live. Run this after ADDING a Configuration column. */
+function applyConfigChangesMenu() {
+  var ss = SpreadsheetApp.getActive();
+  var ui = SpreadsheetApp.getUi();
+  ensureConfiguration_(ss);
+  var changed = syncConfigColumns_(ss);
+  refreshConsolidated_(ss);
+  refreshAnalytics_(ss);
+  var dyn = dynamicConfigLists_(readConfigLists_(ss)).length;
+  ui.alert(
+    'Configuration applied.',
+    (changed
+      ? 'New configuration column(s) added to every month tab; Consolidated and Analytics rebuilt.'
+      : 'No new configuration columns found - dropdowns are live already.') +
+    '\n\nDynamic list column(s) in use: ' + dyn + '.' +
+    '\nEditing values inside a list never needs this menu - dropdowns read the Configuration tab live.',
+    ui.ButtonSet.OK
+  );
+}
+
+/* Canonical dynamic-column headers (month-tab cols 36+): every header
+   currently present on any month tab (first-seen order - so a removed or
+   renamed Configuration column keeps its data column), then any new
+   Configuration-tab list headers appended. syncConfigColumns_ makes every
+   month tab carry this exact sequence, which the Consolidated QUERY needs
+   (its brace blocks must all be the same width). Month-tab config columns
+   are managed by the script only - never reorder them by hand. */
+function configHeadersOnTabs_(ss) {
+  var want = dynamicConfigLists_(readConfigLists_(ss)).map(function (d) { return d.header; });
+  var canonical = [];
+  monthSheets_(ss).forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    var last = sh.getLastColumn();
+    if (last < CONFIG.configFirstCol) return;
+    sh.getRange(1, CONFIG.configFirstCol, 1, last - CONFIG.configFirstCol + 1)
+      .getDisplayValues()[0]
+      .forEach(function (h) {
+        h = String(h || '').trim();
+        if (h && canonical.indexOf(h) === -1) canonical.push(h);
+      });
+  });
+  want.forEach(function (h) { if (canonical.indexOf(h) === -1) canonical.push(h); });
+  return canonical;
+}
+
+/* Appends missing dynamic config columns (AJ..) to every month tab so all
+   tabs carry the canonical sequence (see configHeadersOnTabs_). Returns
+   the number of columns added (0 = nothing changed). Append-only: nothing
+   is ever deleted - a removed/renamed Configuration column survives as an
+   orphan data column; other tabs get it as an empty placeholder. */
+function syncConfigColumns_(ss) {
+  var months = monthSheets_(ss);
+  if (!months.length) return 0;
+  var canonical = configHeadersOnTabs_(ss);
+  if (!canonical.length) return 0;
+
+  var wantSet = {};
+  dynamicConfigLists_(readConfigLists_(ss)).forEach(function (d) { wantSet[d.header] = true; });
+  var conf = ensureConfiguration_(ss);
+  var added = 0;
+
+  months.forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    var have = [];
+    var last = sh.getLastColumn();
+    if (last >= CONFIG.configFirstCol) {
+      sh.getRange(1, CONFIG.configFirstCol, 1, last - CONFIG.configFirstCol + 1)
+        .getDisplayValues()[0]
+        .forEach(function (h) { if (String(h || '').trim()) have.push(String(h).trim()); });
+    }
+
+    canonical.forEach(function (header) {
+      if (have.indexOf(header) !== -1) return;
+      var col = CONFIG.configFirstCol + have.length;
+      sh.getRange(1, col).setValue(header);
+      sh.getRange(2, col, CONFIG.prefillRows, 1).setNumberFormat('@');
+      if (wantSet[header]) {
+        var confCol = findConfigColumn_(conf, header);
+        if (confCol) {
+          var rule = SpreadsheetApp.newDataValidation()
+            .requireValueInRange(conf.getRange(2, confCol, CONFIG.maxConfigValues, 1), true)
+            .setAllowInvalid(true)
+            .build();
+          sh.getRange(2, col, CONFIG.prefillRows, 1).setDataValidation(rule);
+        }
+      }
+      protectStrict_(sh.getRange(1, col).protect(), 'Config header');
+      have.push(header);
+      added++;
+    });
+  });
+  return added;
+}
+
+// Configuration-tab column index (1-based) for a given list header
+function findConfigColumn_(conf, header) {
+  var last = conf.getLastColumn();
+  if (last < 1) return 0;
+  var hv = conf.getRange(1, 1, 1, last).getDisplayValues()[0];
+  for (var i = 0; i < hv.length; i++) {
+    if (String(hv[i] || '').trim() === header) return i + 1;
+  }
+  return 0;
 }
 
 function rebuildAnalyticsMenu() {
@@ -350,10 +560,15 @@ function rebuildAnalyticsMenu() {
 }
 
 /* Analytics tab: live QUERY pivots over Consolidated (never stores data).
-   Layout per refreshAnalytics_ blocks below. */
+    Layout: A = per inspector, D = per month, G = per meter status,
+    J = non-OK meters, M+ = one "Entries per <list>" pivot per dynamic
+    Configuration column (2 columns apart, re-created on every rebuild). */
 function refreshAnalytics_(ss) {
   var sh = ss.getSheetByName('Analytics') || ss.insertSheet('Analytics');
   sh.clear();
+  var dyn = configHeadersOnTabs_(ss); // canonical: what Consolidated carries
+  var lastLetter = columnLetter_(35 + dyn.length);
+  var range = 'Consolidated!A1:' + lastLetter;
   sh.getRange('A1').setValue('ANALYTICS — live pivots over Consolidated (refresh via menu)');
   sh.getRange('A1').setFontWeight('bold').setFontSize(13);
   sh.setFrozenRows(2);
@@ -361,35 +576,65 @@ function refreshAnalytics_(ss) {
   // 1. entries per inspector (all time)
   sh.getRange('A3').setValue('Entries per inspector');
   sh.getRange('A4').setFormula(
-    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col3, count(Col3) where Col3 is not null and Col3 <> \'Entered By\' group by Col3 order by count(Col3) desc label Col3 \'Inspector\', count(Col3) \'Entries\'", 0), "No entries yet")');
+    '=IFERROR(QUERY(' + range + ', "select Col3, count(Col3) where Col3 is not null and Col3 <> \'Entered By\' group by Col3 order by count(Col3) desc label Col3 \'Inspector\', count(Col3) \'Entries\'", 0), "No entries yet")');
 
   // 2. entries per month
   sh.getRange('D3').setValue('Entries per month');
   sh.getRange('D4').setFormula(
-    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col35, count(Col35) where Col35 is not null and Col35 <> \'Source Tab\' group by Col35 order by Col35 desc label Col35 \'Month\', count(Col35) \'Entries\'", 0), "No entries yet")');
+    '=IFERROR(QUERY(' + range + ', "select Col35, count(Col35) where Col35 is not null and Col35 <> \'Source Tab\' group by Col35 order by Col35 desc label Col35 \'Month\', count(Col35) \'Entries\'", 0), "No entries yet")');
 
   // 3. entries per meter status
   sh.getRange('G3').setValue('Entries per meter status');
   sh.getRange('G4').setFormula(
-    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col26, count(Col26) where Col4 is not null and Col26 <> \'Meter Status\' group by Col26 order by count(Col26) desc label Col26 \'Status\', count(Col26) \'Entries\'", 0), "No entries yet")');
+    '=IFERROR(QUERY(' + range + ', "select Col26, count(Col26) where Col4 is not null and Col26 <> \'Meter Status\' group by Col26 order by count(Col26) desc label Col26 \'Status\', count(Col26) \'Entries\'", 0), "No entries yet")');
 
   // 4. problem meters: flagged rows per RR (any spot drift or bad PF etc. — flagged = status <> OK)
   sh.getRange('J3').setValue('Non-OK meters (needs attention)');
   sh.getRange('J4').setFormula(
-    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col26, Col4, count(Col4) where Col4 is not null and Col26 <> \'Meter Status\' and Col26 <> \'OK\' and lower(Col26) <> \'ok\' group by Col26, Col4 order by count(Col4) desc limit 25 label Col26 \'Status\', Col4 \'RR Number\', count(Col4) \'Entries\'", 0), "No entries yet")');
+    '=IFERROR(QUERY(' + range + ', "select Col26, Col4, count(Col4) where Col4 is not null and Col26 <> \'Meter Status\' and Col26 <> \'OK\' and lower(Col26) <> \'ok\' group by Col26, Col4 order by count(Col4) desc limit 25 label Col26 \'Status\', Col4 \'RR Number\', count(Col4) \'Entries\'", 0), "No entries yet")');
 
   // 5. feeder/DTC coverage from spot details (where entered)
   sh.getRange('N3').setValue('Spot Feeder coverage (top 20)');
   sh.getRange('N4').setFormula(
-    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col33, count(Col33) where Col33 is not null and Col33 <> \'Spot Feeder\' group by Col33 order by count(Col33) desc limit 20 label Col33 \'Spot Feeder\', count(Col33) \'Entries\'", 0), "No entries yet")');
+    '=IFERROR(QUERY(' + range + ', "select Col33, count(Col33) where Col33 is not null and Col33 <> \'Spot Feeder\' group by Col33 order by count(Col33) desc limit 20 label Col33 \'Spot Feeder\', count(Col33) \'Entries\'", 0), "No entries yet")');
 
   sh.getRange('Q3').setValue('Spot DTC coverage (top 20)');
   sh.getRange('Q4').setFormula(
-    '=IFERROR(QUERY(Consolidated!A1:AI, "select Col32, count(Col32) where Col32 is not null and Col32 <> \'Spot DTC\' group by Col32 order by count(Col32) desc limit 20 label Col32 \'Spot DTC\', count(Col32) \'Entries\'", 0), "No entries yet")');
+    '=IFERROR(QUERY(' + range + ', "select Col32, count(Col32) where Col32 is not null and Col32 <> \'Spot DTC\' group by Col32 order by count(Col32) desc limit 20 label Col32 \'Spot DTC\', count(Col32) \'Entries\'", 0), "No entries yet")');
+
+  // 6. one pivot per dynamic Configuration column (values are live);
+  //    orphan columns (removed lists) are skipped - their Configuration
+  //    column is gone, so there is no value list to group by meaningfully
+  var wantSet = {};
+  dynamicConfigLists_(readConfigLists_(ss)).forEach(function (d) { wantSet[d.header] = true; });
+  var col = 20; // T; fixed pivots end at Q
+  dyn.forEach(function (header, i) {
+    if (!wantSet[header]) return;
+    var idx = 36 + i;
+    var letter = columnLetter_(col);
+    sh.getRange(letter + '3').setValue('Entries per ' + header);
+    sh.getRange(letter + '4').setFormula(
+      '=IFERROR(QUERY(' + range + ', "select Col' + idx + ', count(Col' + idx + ') where Col4 is not null and Col' + idx +
+      ' is not null and Col' + idx + ' <> \'' + header.replace(/'/g, "''") + '\' group by Col' + idx +
+      ' order by count(Col' + idx + ') desc limit 20 label Col' + idx + ' \'' +
+      header.replace(/'/g, "''") + '\', count(Col' + idx + ') \'Entries\'", 0), "No entries yet")');
+    col += 2;
+  });
 
   if (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) {
     protectStrict_(sh.protect(), 'Analytics - formula view, read-only');
   }
+}
+
+// 1-based column index -> A1 notation letter
+function columnLetter_(n) {
+  var s = '';
+  while (n > 0) {
+    var m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
 }
 
 /* audits Master for problems the form silently tolerates today:
@@ -513,12 +758,14 @@ function getBootstrap() {
         });
       }
     }
+    var lists = readConfigLists_(ss);
     return {
       ok: true,
       user: user,
       version: CONFIG.version,
       currentMonth: Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM'),
-      meterStatuses: CONFIG.meterStatuses,
+      meterStatuses: lists[CONFIG.meterStatusHeader],
+      configLists: lists,
       meters: meters
     };
   } catch (err) {
@@ -542,8 +789,18 @@ function submitEntry(p) {
     var sh = ss.getSheetByName(tabName);
     if (!sh) {
       buildMonthSheet_(ss, tabName);
-      refreshConsolidated_(ss);
       sh = ss.getSheetByName(tabName);
+      // a new month joined the stack; rebuild the derived views (and
+      // pick up any dynamic config columns the new tab received)
+      refreshConsolidated_(ss);
+      refreshAnalytics_(ss);
+    } else if (v.config && syncConfigColumns_(ss) > 0) {
+      // a config value arrived for a column the month tabs don't have
+      // yet (the form reads the Configuration tab on every load - it can
+      // be ahead of the month tabs); columns were just appended - widen
+      // the derived views to include them
+      refreshConsolidated_(ss);
+      refreshAnalytics_(ss);
     }
 
     var row = firstEmptyRow_(sh);
@@ -553,7 +810,7 @@ function submitEntry(p) {
       v.date, v.time, user.name, v.rr, v.ckwh,
       v.b[0], v.b[1], v.b[2], v.b[3], v.b[4], v.b[5],
       v.prk, v.bw[0], v.bw[1], v.bw[2], v.bw[3], v.bw[4], v.bw[5],
-      v.pf, v.status || 'OK', v.remarks
+      v.pf, v.status || v.statusList[0], v.remarks
     ]];
     sh.getRange(row, 1, 1, 21).setValues(out);
     if (v.md) {
@@ -562,6 +819,22 @@ function submitEntry(p) {
         v.md.dtc, v.md.feeder, v.md.location
       ]];
       sh.getRange(row, 29, 1, 7).setValues(spot);
+    }
+    if (v.config) {
+      // dynamic columns start at col 36 (AJ); find each header on the
+      // month tab (syncConfigColumns_ keeps them in lockstep) and write
+      var lastCol = sh.getLastColumn();
+      if (lastCol >= CONFIG.configFirstCol) {
+        var headers = sh.getRange(1, CONFIG.configFirstCol, 1, lastCol - CONFIG.configFirstCol + 1)
+          .getDisplayValues()[0]
+          .map(function (x) { return String(x || '').trim(); });
+        Object.keys(v.config).forEach(function (h) {
+          var idx = headers.indexOf(h);
+          if (idx >= 0) {
+            sh.getRange(row, CONFIG.configFirstCol + idx).setValue(v.config[h]);
+          }
+        });
+      }
     }
     SpreadsheetApp.flush();
 
@@ -634,10 +907,28 @@ function validatePayload_(ss, p) {
   var remarks = String(p.remarks || '').trim();
   if (remarks.length > 200) return { error: 'Remarks too long (max 200 chars).' };
 
-  // meter status: known value or blank (defaults to OK on write)
+  var lists = readConfigLists_(ss);
+
+  // meter status: known value or blank (defaults to the first list value on
+  // write); the list lives in the Configuration tab, col A
   var status = String(p.status || '').trim();
-  if (status && CONFIG.meterStatuses.indexOf(status) === -1) {
+  var statusList = lists[CONFIG.meterStatusHeader];
+  if (status && statusList.indexOf(status) === -1) {
     return { error: 'Unknown meter status "' + status + '".' };
+  }
+
+  // extra config dropdowns (Configuration columns beyond Meter Status):
+  // header -> chosen value, validated against the live lists
+  var config = null;
+  if (p.config && typeof p.config === 'object') {
+    Object.keys(p.config).forEach(function (h) {
+      var val = String(p.config[h] || '').trim();
+      if (!val) return;
+      if (!lists[h] || lists[h].indexOf(val) === -1) {
+        throw new Error('Unknown ' + h + ' value "' + val + '".');
+      }
+      (config = config || {})[h] = val;
+    });
   }
 
   // optional spot-entered meter details (collapsible form section)
@@ -693,7 +984,7 @@ function validatePayload_(ss, p) {
     rr = hitAC.rr;
   }
 
-  return { values: { date: d, time: time, rr: rr, ckwh: ckwh, prk: prk, b: b, bw: bw, pf: pf, status: status, remarks: remarks, md: md } };
+  return { values: { date: d, time: time, rr: rr, ckwh: ckwh, prk: prk, b: b, bw: bw, pf: pf, status: status, statusList: statusList, remarks: remarks, md: md, config: config } };
 }
 
 // mirrors spec §6 flag rules for immediate feedback (sheet formulas re-check anyway)
@@ -807,7 +1098,11 @@ function buildMonthSheet_(ss, name) {
   sh.getRange(2, 22, n, 7).setFormulas(autoFormulas_(n, name)); // V..AB
 
   protectStrict_(sh.getRange(1, 1, 1, cols + 3 + CONFIG.spotHeaders.length).protect(), 'Header row');
-  protectStrict_(sh.getRange(2, 22, n, 7).protect(), 'Auto formulas');
+  protectStrict_(sh.getRange(2, 22, n,  7).protect(), 'Auto formulas');
+
+  // dynamic config columns (AJ..) - appended in lockstep by syncConfigColumns_
+  syncConfigColumns_(ss);
+  return sh;
 }
 
 function addValidations_(sh, n) {
@@ -837,8 +1132,12 @@ function addValidations_(sh, n) {
     .build();
   sh.getRange(2, 1, n, 1).setDataValidation(dateRule);
 
+  // meter status dropdown reads the Configuration tab column live - edit
+  // the sheet and every month tab's dropdown updates instantly, no re-run
+  var conf = ss.getSheetByName('Configuration') || ensureConfiguration_(ss);
+  var stCol = findConfigColumn_(conf, CONFIG.meterStatusHeader) || 1;
   var stRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(CONFIG.meterStatuses, true)
+    .requireValueInRange(conf.getRange(2, stCol, CONFIG.maxConfigValues, 1), true)
     .setAllowInvalid(true)
     .build();
   sh.getRange(2, 21, n, 1).setDataValidation(stRule); // U: Meter Status
@@ -915,11 +1214,16 @@ function refreshConsolidated_(ss) {
   var sh = ss.getSheetByName('Consolidated') || ss.insertSheet('Consolidated');
   var months = monthSheets_(ss);
   var rows = months.length * CONFIG.prefillRows + 20;
-  sh.getRange(2, 1, Math.max(rows, CONFIG.prefillRows), 36).clearContent();
+  // canonical = what the month tabs actually carry (incl. orphans)
+  var dyn = configHeadersOnTabs_(ss);
+  var width = Math.max(35 + dyn.length, 36);
+  sh.getRange(2, 1, Math.max(rows, CONFIG.prefillRows), width).clearContent();
 
-  // NOTE: QUERY output = month A..Z (1..26), then AB..AI (27..34: key + 7 spot), then Source Tab (35)
+  // NOTE: QUERY output = month A..Z (1..26), then AB..AI (27..34: key + 7
+  // spot), then Source Tab (35), then dynamic config columns (36..)
   var headers = CONFIG.registerHeaders.concat(['RR Key', 'Spot Constant', 'Spot Make',
-    'Spot Serial No', 'Spot Phases', 'Spot DTC', 'Spot Feeder', 'Spot Location', 'Source Tab']);
+    'Spot Serial No', 'Spot Phases', 'Spot DTC', 'Spot Feeder', 'Spot Location', 'Source Tab'])
+    .concat(dyn);
   sh.getRange(1, 1, 1, headers.length).setValues([headers]);
   styleHeader_(sh, headers.length);
   sh.setFrozenRows(1);
@@ -936,11 +1240,14 @@ function refreshConsolidated_(ss) {
 
 function consolidatedFormula_(months) {
   var end = CONFIG.prefillRows + 1;
+  var dyn = configHeadersOnTabs_(months[0].getParent());
+  var lastCol = columnLetter_(35 + dyn.length); // AI when no dynamic columns
   var blocks = months.map(function (m) {
-    return '{"' + m + '"!A2:Z' + end + ',"' + m + '"!AB2:AI' + end + ',' +
+    return '{"' + m + '"!A2:Z' + end + ',"' + m + '"!AB2:' + lastCol + end + ',' +
       'ARRAYFORMULA(IF("' + m + '"!D2:D' + end + '<>,"' + m + '",))}';
   });
-  // A..Z (26) then AB..AI (key + 7 spot); RR Key lands at col AA (27) for MAXIFS
+  // A..Z (26) then AB.. (key + 7 spot + Source Tab + dynamic config
+  // columns); RR Key lands at col AA (27) for MAXIFS
   return '=IFERROR(QUERY({' + blocks.join(';') + '},' +
     '"select * where Col4 is not null order by Col1 desc",0),"No entries yet")';
 }

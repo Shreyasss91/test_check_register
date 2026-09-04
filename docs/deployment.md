@@ -30,14 +30,18 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 10. Approve permissions: *Review permissions* → account →
     *Advanced* → *Go to … (unsafe)* → **Allow**
     (expected warning: you authored the script yourself).
-11. The Sheet now has tabs `Master`, `Team`, `_Keys` (hidden — leave it
-    alone), current month, `Consolidated`.
+11. The Sheet now has tabs `Master`, `Team`, `Configuration`,
+     `_Keys` (hidden — leave it alone), current month, `Consolidated`,
+     `Analytics`.
 12. **Existing workbooks upgrading to this version:** run
-    `setupWorkbook` once (creates `_Keys`), then menu
-    *Meter Register > Refresh check formulas (all months)* to rewrite the
-    ⚠-check formulas on existing month tabs with the normalized versions
-    and add the Spot-* detail columns. Month tabs created after the
-    upgrade get them automatically.
+     `setupWorkbook` once (creates the `Configuration` tab with the
+     current meter-status list in column A), then menu
+     *Meter Register > Refresh check formulas (all months)* to rewrite the
+     ⚠-check formulas on existing month tabs with the normalized versions
+     and add the Spot-* detail columns. Month tabs created after the
+     upgrade get them automatically. Existing meter-status dropdowns are
+     re-pointed at `Configuration` column A (live from then on); stored
+     status values are untouched.
 
 ## D. Fill reference data
 
@@ -50,6 +54,14 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
     (inspectors may enter either field — a repeated Account ID is rejected
     as ambiguous). Delete the two `RR-SAMPLE` rows once real meters are
     entered.
+15. `Configuration` — every dropdown list: one column per list, header =
+    the list's name, values below (first value = the form's default).
+    Column A is `Meter Status` (seeded with OK / Defective / Seal broken /
+    Meter stopped / Burnt / Not accessible). To add a status, just add a
+    value in the column — the form and month-tab dropdowns update live.
+    To add a whole new dropdown (e.g. Seal Type), add a new column; the
+    form picks it up on the next load. The tab is protected — edit as the
+    consolidator (temporary protection warning to others is expected).
 
 ## E. Deploy the web app
 
@@ -100,3 +112,5 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 | Changes don't appear | Forgot step 25 — old version still deployed |
 | Script file renamed / Index missing | HTML file must be named exactly `Index` |
 | Inspector submits but no row | Check the month tab isn't locked (closed); check hard-block message shown by the form (unknown RR / PF range) |
+| New Configuration list not in month tabs | Run menu *Meter Register > Apply configuration changes (all months)* — or just wait: the next submit auto-adds the column |
+| "Unknown meter status" on submit | The submitted status isn't in `Configuration` column A (typo, or the form tab was open since before your edit — reload the form) |

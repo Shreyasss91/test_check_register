@@ -59,7 +59,7 @@
 <button class="submit" id="btn" style="display:none" onclick="onSubmit()">Submit inspection</button>
 
 <script>
-  var METERS = {}, QKEY = 'mrq_v1', submitting = false;
+  var METERS = {}, QKEY = 'mrq_v1', CONFIG_LISTS = {}, submitting = false;
 
   /* ---------- boot ---------- */
   window.onload = function () {
@@ -85,6 +85,7 @@
       return;
     }
     document.getElementById('who').textContent = r.user.name;
+    CONFIG_LISTS = r.configLists || {};
     r.meters.forEach(function (m) {
       METERS[normKey(m.rr)] = m;
       if (m.accountId) METERS[normKey(m.accountId)] = m;
@@ -107,6 +108,21 @@
 
     var today = localISO(new Date());
     var now = new Date();
+    var statusList = r.meterStatuses || CONFIG_LISTS['Meter Status'] || ['OK'];
+    var extraLists = [];
+    Object.keys(CONFIG_LISTS).forEach(function (h) {
+      if (h !== 'Meter Status') extraLists.push({ header: h, values: CONFIG_LISTS[h] });
+    });
+    var extraCard = '';
+    if (extraLists.length) {
+      extraCard = '<div class="card"><label>Additional details (optional)</label><div class="grid6">';
+      extraLists.forEach(function (d) {
+        var id = 'cfg_' + normKey(d.header);
+        extraCard += '<div><label>' + esc(d.header) + '</label>' +
+          '<select id="' + id + '"><option value="">—</option></select></div>';
+      });
+      extraCard += '</div></div>';
+    }
     document.getElementById('app').innerHTML =
       '<div class="card">' +
         '<div class="row">' +
@@ -144,9 +160,9 @@
         '<label>PF (0–1)</label>' +
         '<input type="number" id="pf" step="0.01" min="0" max="1" inputmode="decimal">' +
         '<label>Meter status</label>' +
-        '<select id="status"><option value="OK" selected>OK</option></select>' +
+        '<select id="status"></select>' +
       '</div>' +
-
+      extraCard +
       '<div class="card"><label>Remarks (optional)</label>' +
       '<textarea id="remarks" rows="2" maxlength="200"></textarea></div>' +
       '<div class="ver" id="ver"></div>';
@@ -156,11 +172,20 @@
     if (r.version) document.getElementById('ver').textContent = 'Meter Register ' + r.version;
 
     var sel = document.getElementById('status');
-    (r.meterStatuses || ['OK']).forEach(function (s, i) {
+    statusList.forEach(function (s) {
       var o = document.createElement('option');
       o.value = s; o.textContent = s;
-      if (i === 0) o.selected = true;
       sel.appendChild(o);
+    });
+    sel.value = statusList[0]; // first value in the sheet = default
+    extraLists.forEach(function (d) {
+      var es = document.getElementById('cfg_' + normKey(d.header));
+      if (!es) return;
+      d.values.forEach(function (v) {
+        var o = document.createElement('option');
+        o.value = v; o.textContent = v;
+        es.appendChild(o);
+      });
     });
     document.getElementById('btn').style.display = 'block';
     renderQ();
@@ -178,6 +203,11 @@
       s += '<div><label>B' + i + '</label>' +
            '<input type="number" step="0.01" min="0" inputmode="decimal" id="' + pre + i + '"></div>';
     return s;
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   function normKey(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
@@ -265,6 +295,14 @@
       p.blocksKwh.push(g('bk' + i));
       p.bkw.push(g('bw' + i));
     }
+    // extra config dropdowns (Configuration tab columns) - header: value
+    var config = {};
+    Object.keys(CONFIG_LISTS).forEach(function (h) {
+      if (h === 'Meter Status') return;
+      var el = document.getElementById('cfg_' + normKey(h));
+      if (el && el.value) config[h] = el.value;
+    });
+    if (Object.keys(config).length) p.config = config;
     if (!p.date)   return err('Date is required');
     if (!p.time)   return err('Time is required');
     if (!p.rr && !p.accountId) return err('Enter RR Number or Account ID');
@@ -280,8 +318,15 @@
   function resetReadings() {
     ['ckwh','prk','pf','remarks','rr','acct','mdConstant','mdMake','mdSerial','mdPhases','mdDtc','mdFeeder','mdLocation']
       .forEach(function (id) { document.getElementById(id).value = ''; });
-    document.getElementById('status').value = 'OK';
+    var st = document.getElementById('status');
+    if (st && st.options.length) st.value = st.options[0].value; // sheet default
     lastMeter = null;
+    // extra config dropdowns back to their "—" placeholder
+    Object.keys(CONFIG_LISTS).forEach(function (h) {
+      if (h === 'Meter Status') return;
+      var el = document.getElementById('cfg_' + normKey(h));
+      if (el) el.value = '';
+    });
     for (var i = 1; i <= 6; i++) {
       document.getElementById('bk' + i).value = '';
       document.getElementById('bw' + i).value = '';

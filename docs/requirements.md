@@ -55,6 +55,7 @@ Single spreadsheet containing:
 |---|---|
 | `Master` | One row per meter: RR No, Account ID, MRID, MD DAY, SF, Name, Meter Constant, Make, Serial No, Phases, DTC, Feeder, Location |
 | `Team` | Inspectors: Email + Name (login email drives "Entered By") |
+| `Configuration` | All dropdown lists — one column per list, header = list name, values below. Column A (`Meter Status`) backs the fixed Meter Status dropdown; every other column becomes an extra dropdown in the form and a dynamic month-tab column |
 | `<Month>` e.g. `2026-08` | One tab per month — all submitted entries land here |
 | `Consolidated` | Live stack of all month tabs (all history, newest first) |
 
@@ -79,7 +80,8 @@ No per-person tabs anymore.
 | Reading (Pr kW) | manual | present demand |
 | B1–B6 kW | optional | per-block demand |
 | PF | manual | |
-| Meter Status | dropdown | OK / Defective / Seal broken / Meter stopped / Burnt / Not accessible; defaults to OK |
+| Meter Status | dropdown | values live in the `Configuration` tab (col A; seeded OK / Defective / Seal broken / Meter stopped / Burnt / Not accessible). First value in the column = default. Edit/add values in the sheet — the form and month-tab dropdowns pick them up without any code change |
+| Config dropdowns (extra) | dropdown | every `Configuration` column beyond Meter Status renders as an extra optional dropdown in the form; the chosen value is stored in a dynamic month-tab column (36+ / AJ..) and flows into Consolidated/Analytics |
 | Remarks | optional | |
 | Meter Constant / Make / Serial No / Phases | **auto** | looked up from Master via RR Number (shown live in the form) |
 | Spot meter details (optional) | collapsible form section | Constant/Make/Serial/Phases/DTC/Feeder/Location pre-filled from Master, editable at the spot; written to separate Spot-* columns — only fields the inspector actually entered/kept are stored |
@@ -101,6 +103,8 @@ Hard-blocked (input rejected):
    ID matching multiple meters is rejected as ambiguous. The resolved
    Master RR Number is what gets stored in the row.
 2. PF must be between 0 and 1.
+3. Meter Status and any config-dropdown value must exist in its
+   `Configuration` list (rejected as "Unknown … value" otherwise).
 
 Flagged inline (⚠ column, entry still accepted):
 
@@ -154,7 +158,8 @@ Photos, GPS, signatures, native mobile app, external hosting/backend,
 paper-register migration. Analytics: a starter `Analytics` tab with live
 QUERY pivots (per inspector / month / meter status / feeder / DTC) ships
 as part of the workbook; deeper analysis stays deferred but the flat row
-format keeps later pivots easy (Entered By, RR Number, month).
+format keeps later pivots easy (Entered By, RR Number, month). One live
+"Entries per \<list\>" pivot is added for every Configuration list.
 
 ## 11. Decision log
 
@@ -180,6 +185,8 @@ format keeps later pivots easy (Entered By, RR Number, month).
 | D18 | Inspectors get no edit access to the Sheet; corrections via consolidator | single controlled write path (the web app) |
 | D19 | Offline submissions queued in browser storage, auto-retried on reconnect | spots occasionally lack network |
 | D20 | Month tab auto-created by first submission of the month (same template as menu button) | nobody blocked if consolidator forgot |
+| D21 | All dropdown lists live in a `Configuration` tab (one column per list); the first value in a column is the form default | edit/add statuses or whole new dropdowns without touching code |
+| D22 | Extra config lists are stored in dynamic month-tab columns (36+ / AJ..), appended in lockstep on every month tab; append-only (a removed list keeps its data column) | zero-code extensibility while keeping the fixed core layout and the width-aligned Consolidated QUERY intact |
 
 ## 12. Open questions
 
