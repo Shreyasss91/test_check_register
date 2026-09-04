@@ -34,8 +34,13 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
      `_Keys` (hidden — leave it alone), current month, `Consolidated`,
      `Analytics`.
 12. **Existing workbooks upgrading to this version:** run
-     `setupWorkbook` once (creates the `Configuration` tab with the
-     current meter-status list in column A, and the `Guests` tab), then
+     `setupWorkbook` once. A populated `Master` is **migrated in place**
+     (v1.9.0): existing columns are re-mapped to the new order — RR
+     Number, Account ID, Tariff, NAME, SANC_KW, SANC_HP, CONT_DEM, DOS,
+     STATUS, MR ID, MR DAY, SF, METER CONSTANT, METER_SERIAL_NO, Meter
+     Make, Phases, DTC, Feeder, Location, Notes — with every stored value
+     kept; the six new utility fields start blank for the consolidator to
+     fill; `Configuration` and `Guests` tabs are created as before. Then
      menu *Meter Register > Refresh check formulas (all months)* to
      rewrite the ⚠-check formulas and the hidden RR-key columns on
      existing month tabs with the
@@ -54,12 +59,14 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 13. `Team` — one row per inspector:
     column A = their **Gmail address**, column B = their **name**
     (this exact name is written as "Entered By").
-14. `Master` — one row per meter: RR Number, Account ID, MRID, MD DAY, SF,
-    Name, Meter Constant, Make, Serial No, Phases, DTC, Feeder, Location.
-    RR Numbers must be unique; Account IDs must not repeat across meters
-    (inspectors may enter either field — a repeated Account ID is rejected
-    as ambiguous). Delete the two `RR-SAMPLE` rows once real meters are
-    entered.
+14. `Master` — one row per meter, in this column order: RR Number,
+     Account ID, Tariff, NAME, SANC_KW, SANC_HP, CONT_DEM, DOS, STATUS,
+     MR ID, MR DAY, SF, METER CONSTANT, METER_SERIAL_NO, Meter Make,
+     Phases, DTC, Feeder, Location, Notes.
+     RR Numbers must be unique; Account IDs must not repeat across meters
+     (inspectors may enter either field — a repeated Account ID is rejected
+     as ambiguous). Delete the two `RR-SAMPLE` rows once real meters are
+     entered.
 15. `Configuration` — every dropdown list: one column per list, header =
     the list's name, values below (first value = the form's default).
     Column A is `Meter Status` (seeded with OK / Defective / Seal broken /

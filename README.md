@@ -25,7 +25,7 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 
 | Tab | Purpose |
 |---|---|
-| `Master` | Meter list: RR No, account ID, MRID, MD DAY, SF, name, constant, make, serial, phases, DTC, feeder, location |
+| `Master` | Meter list: RR Number, account ID, Tariff, name, SANC_KW/HP, CONT_DEM, DOS, STATUS, MR ID, MR DAY, SF, meter constant, serial no, make, phases, DTC, feeder, location |
 | `Team` | Inspectors: Email + Name (login → identity) |
 | `Guests` | Auto-filled log of form users **not** in Team: Email, typed Name, First/Last Seen, Submissions — your pending-approvals list |
 | `Configuration` | All dropdown lists — one **column** per list (header = name, values below). `Meter Status` (col A) drives the status dropdown; every other column auto-becomes an extra dropdown in the form + a dynamic month-tab column |
@@ -86,7 +86,10 @@ visits still count as one person.
 After any code change: *Deploy → Manage deployments → ✏ → New version*.
 
 **Upgrading an existing workbook:** after pasting the new code, run
-`setupWorkbook` once (creates the `Configuration` tab), then menu
+`setupWorkbook` once — an existing populated `Master` is **migrated in
+place** (columns re-mapped to the new order, data preserved; the new
+Tariff/SANC/CONT_DEM/DOS/STATUS fields start blank for you to fill), and
+the `Configuration` tab is created — then menu
 *Meter Register > Refresh check formulas (all months)* — existing month
 tabs get the normalized ⚠ formulas, the Spot-* detail columns and the
 live status dropdown wired to `Configuration`; `Consolidated` is

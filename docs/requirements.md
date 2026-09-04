@@ -53,7 +53,7 @@ Single spreadsheet containing:
 
 | Tab | Purpose |
 |---|---|
-| `Master` | One row per meter: RR No, Account ID, MRID, MD DAY, SF, Name, Meter Constant, Make, Serial No, Phases, DTC, Feeder, Location |
+| `Master` | One row per meter: RR Number, Account ID, Tariff, NAME, SANC_KW, SANC_HP, CONT_DEM, DOS, STATUS, MR ID, MR DAY, SF, METER CONSTANT, METER_SERIAL_NO, Meter Make, Phases, DTC, Feeder, Location, Notes |
 | `Team` | Inspectors: Email + Name (login email drives "Entered By") |
 | `Guests` | Auto-filled log of form users NOT in Team: Email, typed Name, First/Last Seen, Submissions. Their entries are recorded as `Name{email}` until they are added to Team |
 | `Configuration` | All dropdown lists — one column per list, header = list name, values below. Column A (`Meter Status`) backs the fixed Meter Status dropdown; every other column becomes an extra dropdown in the form and a dynamic month-tab column |
@@ -85,6 +85,7 @@ No per-person tabs anymore.
 | Config dropdowns (extra) | dropdown | every `Configuration` column beyond Meter Status renders as an extra optional dropdown in the form; the chosen value is stored in a dynamic month-tab column (36+ / AJ..) and flows into Consolidated/Analytics |
 | Remarks | optional | |
 | Meter Constant / Make / Serial No / Phases | **auto** | looked up from Master via RR Number (shown live in the form) |
+| Tariff / SANC_KW / SANC_HP / CONT_DEM / DOS / STATUS | **auto** | utility-registry reference fields from Master, shown in the form's meter-info card when the RR resolves (not stored per entry) |
 | Spot meter details (optional) | collapsible form section | Constant/Make/Serial/Phases/DTC/Feeder/Location pre-filled from Master, editable at the spot; written to separate Spot-* columns — only fields the inspector actually entered/kept are stored |
 | Month | **auto** | derived from Date |
 | ⚠ Checks | **auto** | inline validation flags (see §6) |
@@ -198,6 +199,7 @@ format keeps later pivots easy (Entered By, RR Number, month). One live
 | D23 | Unknown logins are guests, not rejections: name captured, rows recorded as `Name{email}`, e-mail logged in `Guests` | nobody is blocked at the spot; every entry stays traceable to a login |
 | D24 | Adding a guest to Team later: menu *Sync guest names from Team* rewrites their `Name{email}` rows to the exact Team name (and clears them from `Guests`) | guest history merges cleanly into the person's Team identity |
 | D25 | RR/Account-ID normalization strips everything except letters and digits (case-insensitive) — implemented identically server-side (`normalizeKey_`), client-side (`normKey`) and in the sheet key formulas (`_Keys` + month-tab key column) | typed, handwritten or legacy RR Numbers with stray punctuation/dashes/spacing never false-flag or double-count a meter |
+| D26 | Master carries the utility-registry reference block (Tariff, SANC_KW, SANC_HP, CONT_DEM, DOS, STATUS + renamed MR ID / MR DAY / METER CONSTANT / METER_SERIAL_NO) in the export column order; shown in the form's meter card; migrating an existing populated Master re-maps columns in place instead of wiping | inspectors see sanction/demand/status context at the spot; existing workbooks keep their meter data on upgrade |
 
 ## 12. Open questions
 

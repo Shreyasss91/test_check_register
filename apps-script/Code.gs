@@ -22,7 +22,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.8.0', // bump on every deploy; shown in the form footer
+  version: 'v1.9.0', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 1000,
   maxTeamRows: 200,
@@ -38,16 +38,19 @@ var CONFIG = {
   defaultMeterStatuses: ['OK', 'Defective', 'Seal broken', 'Meter stopped', 'Burnt', 'Not accessible'],
 
   masterHeaders: [
-    'RR Number', 'Account ID', 'MRID', 'MD DAY', 'SF', 'Name',
-    'Meter Constant', 'Meter Make', 'Meter Serial No', 'Phases',
+    'RR Number', 'Account ID', 'Tariff', 'NAME', 'SANC_KW', 'SANC_HP',
+    'CONT_DEM', 'DOS', 'STATUS', 'MR ID', 'MR DAY', 'SF',
+    'METER CONSTANT', 'METER_SERIAL_NO', 'Meter Make', 'Phases',
     'DTC', 'Feeder', 'Location', 'Notes'
   ],
   masterSampleRows: [
-    ['RR-SAMPLE-01', 'ACC-001', 'MR-001', '15', '1', 'Consumer One',
-      '11', 'L&T', 'LT12345', '3', 'DTC-01', 'Feeder A', 'Location X',
+    ['RR-SAMPLE-01', 'ACC-001', 'LT-2A', 'Consumer One', '5', '7', '8',
+      '2023-01-15', 'ACTIVE', 'MR-001', '15', '1',
+      '11', 'LT12345', 'L&T', '3', 'DTC-01', 'Feeder A', 'Location X',
       'sample row - edit or delete'],
-    ['RR-SAMPLE-02', 'ACC-002', 'MR-002', '10', '1', 'Consumer Two',
-      '22', 'Secura', 'SE67890', '1', 'DTC-02', 'Feeder B', 'Location Y', '']
+    ['RR-SAMPLE-02', 'ACC-002', 'LT-1B', 'Consumer Two', '3', '0', '5',
+      '2022-06-20', 'ACTIVE', 'MR-002', '10', '1',
+      '22', 'SE67890', 'Secura', '1', 'DTC-02', 'Feeder B', 'Location Y', '']
   ],
 
   teamHeaders: ['Email', 'Name'],
@@ -317,7 +320,7 @@ function onOpen() {
 
 function setupWorkbook() {
   var ss = SpreadsheetApp.getActive();
-  buildMaster_(ss);
+  var migrated = buildMaster_(ss);
   buildTeam_(ss);
   buildConfiguration_(ss);
   buildGuests_(ss);
@@ -328,6 +331,12 @@ function setupWorkbook() {
   syncConfigColumns_(ss);
   refreshConsolidated_(ss);
   refreshAnalytics_(ss);
+  if (migrated) {
+    SpreadsheetApp.getUi().alert('Master was migrated to the new 20-column layout.\n\n' +
+      'All existing meter data is preserved; the six new columns (Tariff, SANC_KW, ' +
+      'SANC_HP, CONT_DEM, DOS, STATUS) are blank — fill them from your utility ' +
+      'registry when convenient. Then run "Refresh check formulas (all months)".');
+  }
 }
 
 function rebuildWithConfirm() {
@@ -784,13 +793,16 @@ function columnLetter_(n) {
 function masterHealthCheck() {
   var ss = SpreadsheetApp.getActive();
   var vals = ss.getSheetByName('Master')
-    .getRange(2, 1, CONFIG.maxMasterRows, 13).getDisplayValues();
+    .getRange(2, 1, CONFIG.maxMasterRows, 19).getDisplayValues();
 
   var rrSeen = {}, accSeen = {}, dupRR = [], dupAcc = [];
   var blankFields = {}, sampleRows = 0, count = 0;
-  // A rr · B account · C mrid · D md day · E sf · F name · G..J const/make/serial/phases · K..M dtc/feeder/location
-  var required = ['Account ID', 'MRID', 'MD DAY', 'SF', 'Name',
-    'Meter Constant', 'Meter Make', 'Meter Serial No', 'Phases',
+  // A rr · B account · C tariff · D name · E sanc_kw · F sanc_hp · G cont_dem ·
+  // H dos · I status · J mr id · K mr day · L sf · M constant · N serial ·
+  // O make · P phases · Q dtc · R feeder · S location
+  var required = ['Account ID', 'Tariff', 'NAME', 'SANC_KW', 'SANC_HP',
+    'CONT_DEM', 'DOS', 'STATUS', 'MR ID', 'MR DAY', 'SF',
+    'METER CONSTANT', 'METER_SERIAL_NO', 'Meter Make', 'Phases',
     'DTC', 'Feeder', 'Location'];
 
   for (var i = 0; i < vals.length; i++) {
@@ -809,7 +821,7 @@ function masterHealthCheck() {
       else accSeen[ak] = i;
     }
 
-    for (var c = 1; c <= 12; c++) {
+    for (var c = 1; c <= 18; c++) {
       if (!row[c]) {
         var fld = required[c - 1];
         blankFields[fld] = (blankFields[fld] || 0) + 1;
@@ -902,15 +914,19 @@ function getBootstrap() {
     }
 
     var meters = [];
-    var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 13).getDisplayValues();
+    var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 19).getDisplayValues();
     for (var i = 0; i < mv.length; i++) {
       if (mv[i][0].trim()) {
         meters.push({
-          rr: mv[i][0].trim(), accountId: mv[i][1].trim(), mrid: mv[i][2].trim(),
-          mdDay: mv[i][3].trim(), sf: mv[i][4].trim(), name: mv[i][5].trim(),
-          constant: mv[i][6].trim(), make: mv[i][7].trim(), serial: mv[i][8].trim(),
-          phases: mv[i][9].trim(), dtc: mv[i][10].trim(), feeder: mv[i][11].trim(),
-          spot: mv[i][12].trim()
+          rr: mv[i][0].trim(), accountId: mv[i][1].trim(),
+          tariff: mv[i][2].trim(), name: mv[i][3].trim(),
+          sancKw: mv[i][4].trim(), sancHp: mv[i][5].trim(),
+          contDem: mv[i][6].trim(), dos: mv[i][7].trim(), status: mv[i][8].trim(),
+          mrid: mv[i][9].trim(), mdDay: mv[i][10].trim(), sf: mv[i][11].trim(),
+          constant: mv[i][12].trim(), serial: mv[i][13].trim(),
+          make: mv[i][14].trim(), phases: mv[i][15].trim(),
+          dtc: mv[i][16].trim(), feeder: mv[i][17].trim(),
+          spot: mv[i][18].trim()
         });
       }
     }
@@ -1195,16 +1211,16 @@ function computeWarnings_(ss, sh, row, tabName, v, who) {
 
   // spot-entered details vs Master (drift) — same rule as the ⚠ formula
   if (v.md) {
-    var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 13).getDisplayValues();
+    var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 19).getDisplayValues();
     var mrow = null;
     var rrN = normalizeKey_(v.rr);
     for (var q = 0; q < mv.length; q++) {
       if (normalizeKey_(mv[q][0]) === rrN) { mrow = mv[q]; break; }
     }
     if (mrow) {
-      // Master: G constant, H make, I serial, J phases, K DTC, L feeder, M location
-      var masterMd = { constant: mrow[6], make: mrow[7], serial: mrow[8],
-        phases: mrow[9], dtc: mrow[10], feeder: mrow[11], location: mrow[12] };
+      // Master: M constant, N serial, O make, P phases, Q DTC, R feeder, S location
+      var masterMd = { constant: mrow[12], make: mrow[14], serial: mrow[13],
+        phases: mrow[15], dtc: mrow[16], feeder: mrow[17], location: mrow[18] };
       var diffs = [];
       ['constant', 'make', 'serial', 'phases', 'dtc', 'feeder', 'location'].forEach(function (fld) {
         if (v.md[fld] && String(masterMd[fld] || '').trim() !== v.md[fld]) diffs.push(fld);
@@ -1217,7 +1233,21 @@ function computeWarnings_(ss, sh, row, tabName, v, who) {
 
 /* ================= builders ================= */
 
+/* Builds Master fresh (new workbook) OR migrates an existing populated
+   Master to the current layout in place — resetSheet_ would delete real
+   meter data, so "run setupWorkbook" on an existing workbook must remap
+   columns, never wipe. Returns true when a migration happened. */
 function buildMaster_(ss) {
+  var old = ss.getSheetByName('Master');
+  if (old) {
+    var vals = old.getRange(1, 1, CONFIG.maxMasterRows, 20).getDisplayValues();
+    var hasData = false;
+    for (var i = 1; i < vals.length; i++) {
+      if (String(vals[i][0] || '').trim()) { hasData = true; break; }
+    }
+    if (hasData) return migrateMasterInPlace_(old, vals);
+  }
+
   var sh = resetSheet_(ss, 'Master');
   sh.getRange(1, 1, 1, CONFIG.masterHeaders.length).setValues([CONFIG.masterHeaders]);
   sh.getRange(2, 1, CONFIG.masterSampleRows.length, CONFIG.masterSampleRows[0].length)
@@ -1226,6 +1256,66 @@ function buildMaster_(ss) {
   sh.setFrozenRows(1);
   sh.getRange('A:A').setNumberFormat('@');
   protectStrict_(sh.protect(), 'Master - consolidator only');
+  return false;
+}
+
+/* Remaps a pre-v1.9 14-column Master layout to the 20-column layout:
+   keeps every stored value, moves each old column to its new position and
+   leaves the six new utility fields (Tariff, SANC_KW, SANC_HP, CONT_DEM,
+   DOS, STATUS) blank for the consolidator to fill. The mapping is derived
+   from the actual header row (with the v1.9 renames applied), so it works
+   even if columns were ever reordered by hand. No-op when already current. */
+function migrateMasterInPlace_(sh, vals) {
+  var HEAD = CONFIG.masterHeaders;
+  var hdr = vals[0].map(function (h) { return String(h || '').trim(); });
+  if (hdr.join('|') === HEAD.join('|')) return false; // already current
+
+  var RENAME = { 'MRID': 'MR ID', 'MD DAY': 'MR DAY', 'Name': 'NAME',
+    'Meter Constant': 'METER CONSTANT', 'Meter Serial No': 'METER_SERIAL_NO' };
+  var moveTo = {}; // old col index -> new col index
+  var unmapped = [];
+  hdr.forEach(function (h, i) {
+    if (!h) return;
+    var target = RENAME[h] || h;
+    var n = HEAD.indexOf(target);
+    if (n >= 0) {
+      for (var taken in moveTo) {
+        if (moveTo[taken] === n) return; // first old column wins a new slot
+      }
+      moveTo[i] = n;
+    } else {
+      unmapped.push(h); // custom column the new layout has no slot for
+    }
+  });
+  if (unmapped.length) {
+    throw new Error('Master has column(s) the new layout does not know: ' +
+      unmapped.join(', ') + '. Move them beyond column T (or rename to match), then re-run.');
+  }
+
+  // migrate every row up to the last one with any content, keeping row
+  // positions 1:1 — a blank-RR row in between stays blank in place, so
+  // nothing below a gap is ever shifted or dropped
+  var last = 0;
+  for (var r = 1; r < vals.length; r++) {
+    for (var c = 0; c < vals[r].length; c++) {
+      if (String(vals[r][c] || '').trim()) { last = r; break; }
+    }
+  }
+  var rows = [];
+  for (var r2 = 1; r2 <= last; r2++) {
+    var out = [];
+    for (var c2 = 0; c2 < HEAD.length; c2++) out.push('');
+    for (var oi in moveTo) out[moveTo[oi]] = String(vals[r2][oi] || '').trim();
+    rows.push(out);
+  }
+
+  sh.getRange(1, 1, rows.length + 1, HEAD.length).clearContent();
+  sh.getRange(1, 1, 1, HEAD.length).setValues([HEAD]);
+  if (rows.length) sh.getRange(2, 1, rows.length, HEAD.length).setValues(rows);
+  styleHeader_(sh, HEAD.length);
+  sh.setFrozenRows(1);
+  sh.getRange('A:A').setNumberFormat('@');
+  return true;
 }
 
 function buildTeam_(ss) {
@@ -1363,23 +1453,24 @@ function autoFormulas_(n, tab) {
 }
 
 /* hidden helper tab: live mirror of Master — A = normalized RR key,
-   B..E = Meter Constant / Make / Serial No / Phases, F..H = DTC / Feeder /
-   Location. Month tabs look up through here so normalization is computed
-   once, not per cell. The key formula strips everything except letters and
-   digits (spaces AND special characters), matching normalizeKey_(). */
+   B..E = METER CONSTANT / Meter Make / METER_SERIAL_NO / Phases, F..H =
+   DTC / Feeder / Location. Month tabs look up through here so
+   normalization is computed once, not per cell. The key formula strips
+   everything except letters and digits (spaces AND special characters),
+   matching normalizeKey_(). */
 function refreshKeys_(ss) {
   var sh = ss.getSheetByName('_Keys') || ss.insertSheet('_Keys');
   var last = CONFIG.maxMasterRows + 1;
   sh.getRange(1, 1, 1, 8).setValues([['RR Key', 'Meter Constant', 'Meter Make',
     'Meter Serial No', 'Phases', 'DTC', 'Feeder', 'Location']]);
   sh.getRange('A2').setFormula('=ARRAYFORMULA(IF(Master!A2:A' + last + '="","",LOWER(REGEXREPLACE(Master!A2:A' + last + ',"[^A-Za-z0-9]",""))))');
-  sh.getRange('B2').setFormula('=ARRAYFORMULA(IF(Master!G2:G' + last + '="","",Master!G2:G' + last + '))');
-  sh.getRange('C2').setFormula('=ARRAYFORMULA(IF(Master!H2:H' + last + '="","",Master!H2:H' + last + '))');
-  sh.getRange('D2').setFormula('=ARRAYFORMULA(IF(Master!I2:I' + last + '="","",Master!I2:I' + last + '))');
-  sh.getRange('E2').setFormula('=ARRAYFORMULA(IF(Master!J2:J' + last + '="","",Master!J2:J' + last + '))');
-  sh.getRange('F2').setFormula('=ARRAYFORMULA(IF(Master!K2:K' + last + '="","",Master!K2:K' + last + '))');
-  sh.getRange('G2').setFormula('=ARRAYFORMULA(IF(Master!L2:L' + last + '="","",Master!L2:L' + last + '))');
-  sh.getRange('H2').setFormula('=ARRAYFORMULA(IF(Master!M2:M' + last + '="","",Master!M2:M' + last + '))');
+  sh.getRange('B2').setFormula('=ARRAYFORMULA(IF(Master!M2:M' + last + '="","",Master!M2:M' + last + '))');
+  sh.getRange('C2').setFormula('=ARRAYFORMULA(IF(Master!O2:O' + last + '="","",Master!O2:O' + last + '))');
+  sh.getRange('D2').setFormula('=ARRAYFORMULA(IF(Master!N2:N' + last + '="","",Master!N2:N' + last + '))');
+  sh.getRange('E2').setFormula('=ARRAYFORMULA(IF(Master!P2:P' + last + '="","",Master!P2:P' + last + '))');
+  sh.getRange('F2').setFormula('=ARRAYFORMULA(IF(Master!Q2:Q' + last + '="","",Master!Q2:Q' + last + '))');
+  sh.getRange('G2').setFormula('=ARRAYFORMULA(IF(Master!R2:R' + last + '="","",Master!R2:R' + last + '))');
+  sh.getRange('H2').setFormula('=ARRAYFORMULA(IF(Master!S2:S' + last + '="","",Master!S2:S' + last + '))');
   styleHeader_(sh, 8);
   sh.setFrozenRows(1);
   // guard like refreshConsolidated_: re-running must not stack duplicate

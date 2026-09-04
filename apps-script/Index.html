@@ -238,10 +238,13 @@
     var box = document.getElementById('meterInfo');
     if (!m) { box.style.display = 'none'; return; }
     box.textContent = 'Name: ' + (m.name || '—') + ' · Acct: ' + (m.accountId || '—') +
-      ' · MRID: ' + (m.mrid || '—') + '\n' +
+      ' · MR ID: ' + (m.mrid || '—') + '\n' +
       'Make: ' + (m.make || '—') + ' · S.No: ' + (m.serial || '—') +
       '\nConstant: ' + (m.constant || '—') + ' · Phases: ' + (m.phases || '—') +
-      ' · MD DAY: ' + (m.mdDay || '—') + ' · SF: ' + (m.sf || '—') +
+      ' · MR DAY: ' + (m.mdDay || '—') + ' · SF: ' + (m.sf || '—') +
+      '\nTariff: ' + (m.tariff || '—') + ' · SANC: ' + (m.sancKw || '—') + ' kW / ' +
+      (m.sancHp || '—') + ' HP · Cont.Demand: ' + (m.contDem || '—') +
+      '\nDOS: ' + (m.dos || '—') + ' · Status: ' + (m.status || '—') +
       (m.dtc || m.feeder || m.spot ? '\nDTC: ' + (m.dtc || '—') +
         ' · Feeder: ' + (m.feeder || '—') + ' · Location: ' + (m.spot || '—') : '');
     box.style.whiteSpace = 'pre-line';

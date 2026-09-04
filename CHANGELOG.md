@@ -38,6 +38,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Master schema v2 — utility-registry reference block + in-place
+  migration** (`apps-script/Code.gs`, `apps-script/Index.html`, README,
+  `docs/requirements.md`, `docs/deployment.md`):
+  - Master grows 14 → 20 columns, reordered to match the utility
+    export: RR Number · Account ID · **Tariff** · NAME · **SANC_KW** ·
+    **SANC_HP** · **CONT_DEM** · **DOS** · **STATUS** · MR ID · MR DAY ·
+    SF · METER CONSTANT · METER_SERIAL_NO · Meter Make · Phases · DTC ·
+    Feeder · Location · Notes. Renames: MRID→MR ID, MD DAY→MR DAY,
+    Name→NAME, Meter Constant→METER CONSTANT, Meter Serial No→
+    METER_SERIAL_NO (single serial column — "Meter Serial No" is gone).
+  - **Form meter-info card** now shows Tariff, SANC kW/HP, Cont.Demand,
+    DOS and STATUS when an RR resolves (plus MR ID/MR DAY labels
+    renamed to match), so inspectors see sanction/demand/status context
+    at the spot.
+  - **Every index-based Master reader re-mapped** to the new layout:
+    `getBootstrap` meters payload (19 cols, new `tariff`/`sancKw`/
+    `sancHp`/`contDem`/`dos`/`status` fields served to the form),
+    `masterHealthCheck` (18 compulsory fields now include the six new
+    columns), the spot-drift check in `computeWarnings_` (Master
+    M/N/O/P/Q/R/S), the `_Keys` mirror formulas (B..H now source Master
+    M/O/N/P/Q/R/S), and the RR dropdown validation range (A —
+    unchanged). Month-tab layout, Consolidated and Analytics are
+    untouched (they read month tabs, not Master).
+  - **In-place migration** (`migrateMasterInPlace_`, called from
+    `buildMaster_`): running `setupWorkbook` on an existing populated
+    Master no longer wipes it — the mapping is derived from the actual
+    header row (with renames applied), every stored value is carried to
+    its new column, and the six new fields start blank for the
+    consolidator to fill. A fresh workbook still gets the seeded
+    RR-SAMPLE rows (updated to the new layout). No-op when the header
+    row is already current, so re-running is safe.
+  - Version bumped to v1.9.0. Spec: §4 Master row + §5 new auto-fields
+    row + decision D26; deployment guide step 14 + upgrade note; README
+    Master row + upgrade note.
+  - **Upgrade:** paste both files, run `setupWorkbook` (migrates
+    Master, creates Configuration/Guests), then menu *Refresh check
+    formulas (all months)*, then deploy a new version.
+
 - **Guest flow — unknown logins are never hard-blocked**
   (`apps-script/Code.gs`, `apps-script/Index.html`, README,
   `docs/requirements.md`, `docs/deployment.md`):
