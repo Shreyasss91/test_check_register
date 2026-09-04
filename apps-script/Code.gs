@@ -1402,16 +1402,15 @@ function refreshConsolidated_(ss) {
   if (months.length === 0) {
     sh.getRange('A2').setValue('No entries yet');
   } else {
-    sh.getRange('A2').setFormula(consolidatedFormula_(months));
+    sh.getRange('A2').setFormula(consolidatedFormula_(months, dyn));
   }
   if (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) {
     protectStrict_(sh.protect(), 'Consolidated - formula view, read-only');
   }
 }
 
-function consolidatedFormula_(months) {
+function consolidatedFormula_(months, dyn) {
   var end = CONFIG.prefillRows + 1;
-  var dyn = configHeadersOnTabs_(months[0].getParent());
   var lastCol = columnLetter_(35 + dyn.length); // AI when no dynamic columns
   var blocks = months.map(function (m) {
     return '{"' + m + '"!A2:Z' + end + ',"' + m + '"!AB2:' + lastCol + end + ',' +

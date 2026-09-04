@@ -7,6 +7,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`setupWorkbook` crash: "TypeError: months[0].getParent is not a
+  function"** (`apps-script/Code.gs`):
+  - Symptom: right after pasting the code and running `setupWorkbook`
+    (or *Refresh Consolidated*, or any flow that reaches
+    `refreshConsolidated_`), execution died at
+    `consolidatedFormula_` with the TypeError above whenever at least
+    one month tab existed. On a brand-new workbook with zero month
+    tabs it worked by accident (the formula branch is skipped), so the
+    bug hid until the first month appeared.
+  - Root cause: `monthSheets_(ss)` returns sheet **names** (plain
+    strings), but `consolidatedFormula_(months)` treated its argument
+    as **sheet objects** and called
+    `months[0].getParent()` to get the spreadsheet for
+    `configHeadersOnTabs_`. Strings have no `.getParent` — hence the
+    TypeError.
+  - Fix: `refreshConsolidated_` already computed the canonical dynamic
+    config headers (`dyn`, used for the header row and clear width)
+    before calling the formula builder, so the value is now passed in
+    — `consolidatedFormula_(months, dyn)` — and the broken
+    `.getParent()` recompute is deleted. One source of truth, one
+    fewer spreadsheet round-trip, and the dynamic-column sequence used
+    by the QUERY blocks is guaranteed identical to the header row
+    written above them.
+  - No data/format impact: the Consolidated QUERY output is unchanged;
+    existing workbooks just need the updated `Code.gs` pasted and
+    `setupWorkbook` (or *Refresh Consolidated*) re-run.
+
 ### Added
 
 - **Guest flow — unknown logins are never hard-blocked**
