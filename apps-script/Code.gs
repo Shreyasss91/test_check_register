@@ -332,11 +332,27 @@ function setupWorkbook() {
   refreshConsolidated_(ss);
   refreshAnalytics_(ss);
   if (migrated) {
-    SpreadsheetApp.getUi().alert('Master was migrated to the new 20-column layout.\n\n' +
+    uiAlert_(ss, 'Master was migrated to the new 20-column layout.\n\n' +
       'All existing meter data is preserved; the six new columns (Tariff, SANC_KW, ' +
       'SANC_HP, CONT_DEM, DOS, STATUS) are blank — fill them from your utility ' +
       'registry when convenient. Then run "Refresh check formulas (all months)".');
   }
+}
+
+/* Context-safe alert: getUi() throws when run from contexts without a
+   spreadsheet UI (e.g. the Apps Script editor "Run" button in some setups).
+   Falls back to the Sheet toast, then to the execution log — the message
+   must never crash a run that already did its work. */
+function uiAlert_(ss, msg) {
+  try {
+    SpreadsheetApp.getUi().alert(msg);
+    return;
+  } catch (e) { /* no UI in this context */ }
+  try {
+    ss.toast(msg, 'Meter Register', 30);
+    return;
+  } catch (e2) { /* toast unavailable too */ }
+  Logger.log(msg);
 }
 
 function rebuildWithConfirm() {

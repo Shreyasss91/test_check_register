@@ -9,6 +9,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **`setupWorkbook` crash: "Cannot call SpreadsheetApp.getUi() from this
+  context"** (`apps-script/Code.gs`):
+  - Symptom: right after the Master-migration run (or any fresh
+    `setupWorkbook` from the Apps Script editor's Run button in some
+    setups), execution died at the final migration-alert line with the
+    exception above. Because it was the **last** statement, the damage
+    was zero — Master was already migrated and every tab built — but
+    the run reported failure and could scare the consolidator into
+    re-running (which is safe, yet confusing).
+  - Root cause: `SpreadsheetApp.getUi()` only works when a spreadsheet
+    UI is attached to the execution context; the editor's Run button
+    doesn't always provide one. `setupWorkbook` is exactly the function
+    people run from the editor, so its alert must not depend on `getUi()`.
+  - Fix: new `uiAlert_(ss, msg)` helper — tries the UI alert, falls back
+    to the Sheet toast, then to `Logger.log` — and `setupWorkbook`'s
+    migration notice goes through it. The message can never crash a run
+    that already did its work. Menu-driven functions keep their direct
+    `getUi()` alerts (a menu click always has a UI).
+
+### Fixed
+
 - **`setupWorkbook` crash: "TypeError: months[0].getParent is not a
   function"** (`apps-script/Code.gs`):
   - Symptom: right after pasting the code and running `setupWorkbook`
