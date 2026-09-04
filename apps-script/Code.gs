@@ -5,6 +5,9 @@
  * One spreadsheet (consolidator-owned) + one Apps Script Web App.
  * Inspectors use only the web form; the script writes rows on their behalf
  * and resolves "Entered By" from their Google login email via the Team tab.
+ * Unknown logins are NOT blocked: they run as guests (name typed in the
+ * form, recorded as "Name{email}", e-mail captured in the Guests tab) and
+ * are renamed by "Sync guest names from Team" once added to Team.
  *
  * SETUP (one time, consolidator)
  *   1. Create a new Google Sheet. Extensions > Apps Script.
@@ -19,11 +22,12 @@
  */
 
 var CONFIG = {
-  version: 'v1.6.0', // bump on every deploy; shown in the form footer
+  version: 'v1.7.0', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 1000,
   maxTeamRows: 200,
   maxConfigValues: 100, // per Configuration column
+  maxGuestRows: 500,
 
   // fixed month-tab layout: cols 1..35 (A..AI) - see the layout comment above
   // onOpen(). Dynamic config columns (from the Configuration tab) are appended
@@ -51,6 +55,8 @@ var CONFIG = {
     ['inspector1@gmail.com', 'Person One'],
     ['inspector2@gmail.com', 'Person Two']
   ],
+
+  guestHeaders: ['Email', 'Name', 'First Seen', 'Last Seen', 'Submissions'],
 
   registerHeaders: [
     'Date', 'Time', 'Entered By', 'RR Number', 'Reading (CKWh)',
@@ -158,6 +164,133 @@ function dynamicConfigLists_(lists) {
   return out;
 }
 
+/* ================= guests tab ================= */
+
+/* The Guests tab logs every login that was NOT in Team when they used the
+   web form (no hard block): Email, the name they typed, First/Last Seen,
+   and how many entries they submitted. Their rows go out as
+   "Name{email}" in the Entered By column so the origin is always
+   traceable. Once you add their e-mail to Team, run
+   "Sync guest names from Team" - every "Name{email}" row becomes exactly
+   the Team name, so their history merges with their future entries. */
+
+// builds the Guests tab (setup only); consolidator-editable like Team
+function buildGuests_(ss) {
+  var sh = resetSheet_(ss, 'Guests');
+  sh.getRange(1, 1, 1, CONFIG.guestHeaders.length).setValues([CONFIG.guestHeaders]);
+  styleHeader_(sh, CONFIG.guestHeaders.length);
+  sh.setFrozenRows(1);
+  sh.getRange('A:A').setNumberFormat('@');
+  sh.setColumnWidth(1, 220);
+  if (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) {
+    protectStrict_(sh.protect(), 'Guests - consolidator only');
+  }
+  return sh;
+}
+
+// returns the existing Guests tab, creating it (empty) if missing
+function ensureGuests_(ss) {
+  var sh = ss.getSheetByName('Guests');
+  if (!sh) sh = buildGuests_(ss);
+  return sh;
+}
+
+/* Records (or refreshes) a guest: upserts Email / Name / First Seen /
+   Last Seen / Submissions++ on the Guests tab. Called inside the submit
+   lock, so counts cannot race. Returns the guest display name. */
+function recordGuest_(ss, email, name) {
+  var sh = ensureGuests_(ss);
+  var vals = sh.getRange(2, 1, CONFIG.maxGuestRows, 5).getDisplayValues();
+  var now = new Date();
+
+  var existing = -1; // index in vals with this e-mail
+  var empty = -1;    // index of first empty row
+  for (var i = 0; i < vals.length; i++) {
+    var em = String(vals[i][0] || '').trim().toLowerCase();
+    if (em === email) { existing = i; break; }
+    if (empty === -1 && !em) empty = i;
+  }
+
+  if (existing >= 0) {
+    var seen = parseInt(vals[existing][4], 10) || 0;
+    var firstSeen = vals[existing][2] || now;
+    sh.getRange(existing + 2, 1, 1, 5)
+      .setValues([[email, name, firstSeen, now, seen + 1]]);
+  } else {
+    var row = empty >= 0 ? empty + 2 : sh.getLastRow() + 1;
+    if (row > CONFIG.maxGuestRows + 1) row = CONFIG.maxGuestRows + 1; // cap: overwrite last slot
+    sh.getRange(row, 1, 1, 5).setValues([[email, name, now, now, 1]]);
+  }
+  return name + '{' + email + '}';
+}
+
+/* Menu: rewrites every guest row ("Name{email}") in all month tabs to the
+   Team name for that e-mail (exactly what Team says - so guest history
+   merges with the person's future Team entries). Rows whose e-mail is
+   still not in Team are left untouched. Consolidated/Analytics are live
+   views over the month tabs, so they update automatically. */
+function syncGuestNames() {
+  var ss = SpreadsheetApp.getActive();
+  var ui = SpreadsheetApp.getUi();
+
+  var team = ss.getSheetByName('Team').getRange(2, 1, CONFIG.maxTeamRows, 2).getDisplayValues();
+  var emailToName = {};
+  team.forEach(function (r) {
+    var em = String(r[0] || '').trim().toLowerCase();
+    var nm = String(r[1] || '').trim();
+    if (em && nm) emailToName[em] = nm;
+  });
+
+  var re = /^(.*)\{([^}]+)\}$/; // "Name{email}"
+  var changed = 0, scanned = 0;
+  monthSheets_(ss).forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    var last = Math.min(sh.getLastRow(), CONFIG.prefillRows + 1);
+    if (last < 2) return;
+    var range = sh.getRange(2, 3, last - 1, 1); // C: Entered By
+    var vals = range.getDisplayValues();
+    var dirty = false;
+    for (var i = 0; i < vals.length; i++) {
+      var v = String(vals[i][0] || '').trim();
+      var m = re.exec(v);
+      if (!m) continue;
+      scanned++;
+      var em = m[2].trim().toLowerCase();
+      if (!emailToName[em]) continue; // not in Team yet - leave for next run
+      var nn = emailToName[em];
+      if (v !== nn) { vals[i][0] = nn; dirty = true; changed++; }
+    }
+    if (dirty) range.setValues(vals);
+  });
+
+  // drop the Guest rows that are now Team members (they are no longer pending)
+  var dropped = 0;
+  var gsh = ss.getSheetByName('Guests');
+  if (gsh) {
+    var gv = gsh.getRange(2, 1, CONFIG.maxGuestRows, 1).getDisplayValues();
+    var kill = [];
+    gv.forEach(function (r, i) {
+      var em = String(r[0] || '').trim().toLowerCase();
+      if (em && emailToName[em]) kill.push(i + 2);
+    });
+    kill.reverse().forEach(function (row) {
+      gsh.getRange(row, 1, 1, 5).clearContent();
+      dropped++;
+    });
+  }
+
+  ui.alert(
+    'Guest names synced from Team.',
+    (changed
+      ? changed + ' row(s) rewritten to the Team name.'
+      : 'No guest rows needed a rename.') +
+    '\nGuest-marked rows scanned: ' + scanned + '.' +
+    (dropped ? '\nGuests promoted to Team (rows removed from Guests tab): ' + dropped + '.' : '') +
+    '\n\nRows whose e-mail is not yet in Team stay as Name{email} - re-run this after adding them.',
+    ui.ButtonSet.OK
+  );
+}
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Meter Register')
@@ -174,6 +307,7 @@ function onOpen() {
     .addItem('Install weekly digest trigger (Mon 8am)', 'installWeeklyDigest')
     .addSeparator()
     .addItem('Master health check…', 'masterHealthCheck')
+    .addItem('Sync guest names from Team', 'syncGuestNames')
     .addSeparator()
     .addItem('Rebuild all sheets (erases data!)', 'rebuildWithConfirm')
     .addToUi();
@@ -186,6 +320,7 @@ function setupWorkbook() {
   buildMaster_(ss);
   buildTeam_(ss);
   buildConfiguration_(ss);
+  buildGuests_(ss);
   refreshKeys_(ss);
   if (monthSheets_(ss).length === 0) {
     buildMonthSheet_(ss, Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM'));
@@ -199,8 +334,8 @@ function rebuildWithConfirm() {
   var ui = SpreadsheetApp.getUi();
   var resp = ui.alert(
     'Rebuild sheets?',
-    'Every tab (Master, Team, Consolidated, months) is deleted and recreated. ALL data is lost.\n\n' +
-    'A full XLSX backup is saved to Drive first. Continue?',
+    'Every tab (Master, Team, Configuration, Guests, Consolidated, months) is deleted and recreated. ALL data is lost.\n\n' +
+      'A full XLSX backup is saved to Drive first. Continue?',
     ui.ButtonSet.YES_NO
   );
   if (resp !== ui.Button.YES) return;
@@ -226,7 +361,7 @@ function rebuildWithConfirm() {
   }
 
   var tmp = null;
-  var known = function (n) { return MONTH_RE.test(n) || /^(Master|Team|Configuration|Consolidated|_Keys|Analytics)$/.test(n); };
+  var known = function (n) { return MONTH_RE.test(n) || /^(Master|Team|Configuration|Guests|Consolidated|_Keys|Analytics)$/.test(n); };
   if (ss.getSheets().every(function (s) { return known(s.getName()); })) tmp = ss.insertSheet('temp-rebuild');
   ss.getSheets().forEach(function (s) {
     var n = s.getName();
@@ -355,7 +490,7 @@ function sendWeeklyDigest() {
   var weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
 
   var months = monthSheets_(ss);
-  var perInspector = {}, total = 0, flagged = [];
+  var perInspector = {}, labels = {}, total = 0, flagged = [];
   var capacity = [];
 
   months.forEach(function (name) {
@@ -374,8 +509,13 @@ function sendWeeklyDigest() {
       if (!rows[i][3]) continue; // empty row
       total++;
       used++;
+      // guests are counted per e-mail (Name{email} - the name part may
+      // vary between visits; the e-mail is the stable identity)
       var who = rows[i][2] || '(unknown)';
-      perInspector[who] = (perInspector[who] || 0) + 1;
+      var gm = /^(.*)\{([^}]+)\}$/.exec(who);
+      var key = gm ? gm[2].toLowerCase() : who;
+      perInspector[key] = (perInspector[key] || 0) + 1;
+      labels[key] = who;
 
       var flags = String(rows[i][26] || '').trim(); // AA = ⚠ Checks
       if (flags && flags !== '\u26A0 Checks') flagged.push(name + ' row ' + (i + 2) + ' (' + rows[i][3] + ', ' + who + '): ' + flags);
@@ -393,7 +533,7 @@ function sendWeeklyDigest() {
   if (Object.keys(perInspector).length) {
     lines.push('Per inspector:');
     Object.keys(perInspector).sort(function (a, b) { return perInspector[b] - perInspector[a]; })
-      .forEach(function (k) { lines.push('  • ' + k + ': ' + perInspector[k]); });
+      .forEach(function (k) { lines.push('  • ' + labels[k] + ': ' + perInspector[k]); });
   } else {
     lines.push('Per inspector: no submissions this week.');
   }
@@ -722,7 +862,10 @@ function doGet() {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// identity: login email must exist in Team!A
+/* identity: Team member -> { email, name, guest:false }. Unknown login ->
+   { email, name:null, guest:true } - NOT blocked; the form asks for a
+   name and rows go out as "Name{email}" (see Guests tab). No login e-mail
+   at all (anonymous) is still refused - that cannot be traced to anyone. */
 function currentUser_(ss) {
   var email = (Session.getActiveUser().getEmail() || '').toLowerCase();
   if (!email) return null;
@@ -730,10 +873,10 @@ function currentUser_(ss) {
   for (var i = 0; i < vals.length; i++) {
     if (vals[i][0].trim().toLowerCase() === email) {
       var name = vals[i][1].trim();
-      return name ? { email: email, name: name } : null;
+      return name ? { email: email, name: name, guest: false } : null;
     }
   }
-  return null;
+  return { email: email, name: null, guest: true };
 }
 
 function getBootstrap() {
@@ -741,8 +884,20 @@ function getBootstrap() {
     var ss = SpreadsheetApp.getActive();
     var user = currentUser_(ss);
     if (!user) {
-      var email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-      return { ok: false, reason: 'not_authorized', email: email };
+      // no login e-mail at all - cannot be traced, refuse
+      return { ok: false, reason: 'not_authorized', email: '' };
+    }
+
+    // guests: offer their previously-typed name (if any) so the form can
+    // pre-fill it; membership only changes the banner, not the flow
+    if (user.guest) {
+      var gv = ensureGuests_(ss).getRange(2, 1, CONFIG.maxGuestRows, 2).getDisplayValues();
+      for (var g = 0; g < gv.length; g++) {
+        if (String(gv[g][0] || '').trim().toLowerCase() === user.email) {
+          user.name = String(gv[g][1] || '').trim() || null;
+          break;
+        }
+      }
     }
 
     var meters = [];
@@ -779,11 +934,24 @@ function submitEntry(p) {
   try {
     var ss = SpreadsheetApp.getActive();
     var user = currentUser_(ss);
-    if (!user) return { ok: false, error: 'Your e-mail is not in the Team list. Ask the admin to add your e-mail to the list, or log in with an approved e-mail.' };
+    if (!user) return { ok: false, error: 'No login e-mail available - open the form while logged into your Google account.' };
 
     var chk = validatePayload_(ss, p);
     if (chk.error) return { ok: false, error: chk.error };
     var v = chk.values;
+
+    // resolve the "Entered By" value: Team member -> plain name; guest ->
+    // "Name{email}" recorded on the Guests tab (typed name required)
+    var who;
+    if (user.guest) {
+      var gname = String(p.guestName || '').trim();
+      if (!gname) return { ok: false, error: 'Enter your name (you are not in the Team list yet).' };
+      if (gname.length > 60) return { ok: false, error: 'Name too long (max 60 chars).' };
+      if (/[{}]/.test(gname)) return { ok: false, error: 'Name cannot contain { or }.' };
+      who = recordGuest_(ss, user.email, gname);
+    } else {
+      who = user.name;
+    }
 
     var tabName = Utilities.formatDate(v.date, ss.getSpreadsheetTimeZone(), 'yyyy-MM');
     var sh = ss.getSheetByName(tabName);
@@ -807,7 +975,7 @@ function submitEntry(p) {
     if (row < 0) return { ok: false, error: 'Month tab "' + tabName + '" is full (1000 rows).' };
 
     var out = [[
-      v.date, v.time, user.name, v.rr, v.ckwh,
+      v.date, v.time, who, v.rr, v.ckwh,
       v.b[0], v.b[1], v.b[2], v.b[3], v.b[4], v.b[5],
       v.prk, v.bw[0], v.bw[1], v.bw[2], v.bw[3], v.bw[4], v.bw[5],
       v.pf, v.status || v.statusList[0], v.remarks
@@ -838,7 +1006,7 @@ function submitEntry(p) {
     }
     SpreadsheetApp.flush();
 
-    var warnings = computeWarnings_(ss, sh, row, tabName, v, user.name);
+    var warnings = computeWarnings_(ss, sh, row, tabName, v, who);
 
     // capacity alert: tell the submitter + email the owner once at 90%
     var used = row - 1;
@@ -1114,6 +1282,9 @@ function addValidations_(sh, n) {
     .build();
   sh.getRange(2, 4, n, 1).setDataValidation(rrRule);
 
+  // "Entered By" dropdown: Team names; guest rows carry "Name{email}"
+  // which is not (and must not be) a Team value, so invalid entries are
+  // allowed (warning only, never a hard block)
   var whoRule = SpreadsheetApp.newDataValidation()
     .requireValueInRange(ss.getSheetByName('Team').getRange('B2:B' + CONFIG.maxTeamRows), true)
     .setAllowInvalid(true)

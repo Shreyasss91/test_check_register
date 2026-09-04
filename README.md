@@ -17,6 +17,7 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 
 - Inspectors **never touch the Sheet** — only the form. Their login email
   must be listed in the `Team` tab; "Entered By" comes from that mapping.
+- **Not in Team yet? Not blocked** — see *Guests* below.
 - Works offline at spots: submissions queue on the phone and send
   automatically when back online.
 
@@ -26,6 +27,7 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 |---|---|
 | `Master` | Meter list: RR No, account ID, MRID, MD DAY, SF, name, constant, make, serial, phases, DTC, feeder, location |
 | `Team` | Inspectors: Email + Name (login → identity) |
+| `Guests` | Auto-filled log of form users **not** in Team: Email, typed Name, First/Last Seen, Submissions — your pending-approvals list |
 | `Configuration` | All dropdown lists — one **column** per list (header = name, values below). `Meter Status` (col A) drives the status dropdown; every other column auto-becomes an extra dropdown in the form + a dynamic month-tab column |
 | `YYYY-MM` | One per month; 1 000 rows ready; ⚠ Checks column flags issues |
 | `Consolidated` | All months stacked live, newest first |
@@ -45,6 +47,26 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
   right away via menu *Meter Register > Apply configuration changes
   (all months)*. Consolidated and Analytics pick the column up too.
 - Append-only: removing a list never deletes its stored data column.
+
+## Guests (people not in Team yet)
+
+Someone opens the form with a Google login that isn't in `Team`:
+
+1. **Not blocked.** A yellow banner tells them they're not in Team yet and
+   how their entries will be recorded.
+2. **Their e-mail is captured** and they must type their name once
+   (pre-filled from any previous visit).
+3. Their entries land like everyone else's, with "Entered By" recorded
+   as `Name{email}` — always traceable, in the month tabs and the live
+   Consolidated view.
+4. **Later, add their e-mail to `Team`** (with the proper name), then run
+   *Meter Register > Sync guest names from Team* — every `Name{email}`
+   row becomes exactly the Team name, so their old and new entries count
+   as one person everywhere (Analytics, weekly digest). Their row
+   disappears from `Guests`.
+
+The digest groups guests by e-mail (not name), so name typos between
+visits still count as one person.
 
 ## Setup (one time, consolidator)
 
@@ -80,7 +102,8 @@ refreshed automatically.
   (*Unlock month* exists for corrections.)
 - **Anytime:** *Master health check…* audits Master for duplicate RR
   Numbers, duplicate Account IDs, blank compulsory fields and leftover
-  RR-SAMPLE rows.
+  RR-SAMPLE rows. *Sync guest names from Team* renames guest rows after
+  you add people to Team.
 - **After editing `Configuration`:** nothing needed for value edits. After
   adding a new list column: *Meter Register > Apply configuration changes
   (all months)* adds the new column to every month tab immediately and
@@ -109,5 +132,7 @@ by > ±1 kWh · wrong-month date · duplicates · missing PF. All RR matching
   them at the spot if the meter differs.
 - No network? Submit anyway — it saves on the phone and sends itself later;
   the yellow bar shows how many entries are waiting.
-- "E-mail not in Team list"? Your Gmail isn't in the Team tab yet — ask
-  the admin to add it, or log in with an approved e-mail.
+- Not in Team yet (yellow banner)? Submit anyway — type your name once;
+  entries are recorded as `Name{e-mail}` until the admin adds you.
+- "No login e-mail available"? Open the form while logged into a Google
+  account — entries must be traceable to someone.

@@ -55,6 +55,7 @@ Single spreadsheet containing:
 |---|---|
 | `Master` | One row per meter: RR No, Account ID, MRID, MD DAY, SF, Name, Meter Constant, Make, Serial No, Phases, DTC, Feeder, Location |
 | `Team` | Inspectors: Email + Name (login email drives "Entered By") |
+| `Guests` | Auto-filled log of form users NOT in Team: Email, typed Name, First/Last Seen, Submissions. Their entries are recorded as `Name{email}` until they are added to Team |
 | `Configuration` | All dropdown lists — one column per list, header = list name, values below. Column A (`Meter Status`) backs the fixed Meter Status dropdown; every other column becomes an extra dropdown in the form and a dynamic month-tab column |
 | `<Month>` e.g. `2026-08` | One tab per month — all submitted entries land here |
 | `Consolidated` | Live stack of all month tabs (all history, newest first) |
@@ -73,7 +74,7 @@ No per-person tabs anymore.
 |---|---|---|
 | Date | pre-filled | device date, editable; dd-mm-yyyy |
 | Time | pre-filled | device time at spot, editable; 12-h `hh:mm am/pm` |
-| Entered By | **auto** | resolved from Google login email via `Team` tab |
+| Entered By | **auto** | Team member: resolved from Google login email via `Team` tab. Guest (login not in Team): **not blocked** — form asks for a name, row records `Name{email}`; e-mail + name logged in `Guests` |
 | RR Number / Account ID | dropdown | enter either one; fed by `Master`; resolved meter may be recorded by multiple people |
 | Reading (CKWh) | manual | main cumulative kWh |
 | B1–B6 kWh | optional | per-block readings where applicable |
@@ -129,8 +130,12 @@ casing/spacing are checked identically to the server.
 
 - `doGet()` serves a single mobile-first page (HTML/CSS/JS served by the
   bound script — no external hosting).
-- On load: script verifies the visitor's email exists in `Team` (else shows
-  "not authorized"), then returns team/meter reference data for dropdowns.
+- On load: script verifies the visitor's email. In `Team` → normal flow.
+  Not in `Team` → **guest flow** (no hard block): a banner explains they
+  are not in Team yet, a name field is required, and their submissions
+  are recorded as `Name{email}` with the e-mail captured in `Guests`.
+  Only a completely anonymous session (no login e-mail at all) is
+  refused, since it cannot be traced to anyone.
 - Form behavior: Date/Time pre-filled with device now (editable); picking an
   RR Number instantly shows Make/Serial/Constant/Phases; Submit calls
   server → hard-block validation → append to the month tab of the entry's
@@ -187,6 +192,8 @@ format keeps later pivots easy (Entered By, RR Number, month). One live
 | D20 | Month tab auto-created by first submission of the month (same template as menu button) | nobody blocked if consolidator forgot |
 | D21 | All dropdown lists live in a `Configuration` tab (one column per list); the first value in a column is the form default | edit/add statuses or whole new dropdowns without touching code |
 | D22 | Extra config lists are stored in dynamic month-tab columns (36+ / AJ..), appended in lockstep on every month tab; append-only (a removed list keeps its data column) | zero-code extensibility while keeping the fixed core layout and the width-aligned Consolidated QUERY intact |
+| D23 | Unknown logins are guests, not rejections: name captured, rows recorded as `Name{email}`, e-mail logged in `Guests` | nobody is blocked at the spot; every entry stays traceable to a login |
+| D24 | Adding a guest to Team later: menu *Sync guest names from Team* rewrites their `Name{email}` rows to the exact Team name (and clears them from `Guests`) | guest history merges cleanly into the person's Team identity |
 
 ## 12. Open questions
 

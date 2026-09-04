@@ -9,6 +9,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Guest flow — unknown logins are never hard-blocked**
+  (`apps-script/Code.gs`, `apps-script/Index.html`, README,
+  `docs/requirements.md`, `docs/deployment.md`):
+  - A person whose Google login e-mail is **not in Team** can now open
+    and use the web app (previously: "not authorized" dead end).
+  - **E-mail captured + name asked**: a yellow guest banner explains the
+    situation, and a required *Your name* field appears (pre-filled from
+    any previous guest visit, `autocomplete="name"`, max 60 chars,
+    `{}` rejected so the `Name{email}` format can't be forged/broken).
+  - Their entries are written with "Entered By" = `Name{email}` in the
+    month tabs — and therefore in the live Consolidated view — keeping
+    every entry traceable to a login while they await Team membership.
+  - New **Guests tab** (auto-maintained): Email · typed Name · First
+    Seen · Last Seen · Submissions — the consolidator's pending list of
+    who used the form without being on Team. Built by `setupWorkbook`,
+    auto-created on demand for older workbooks (`ensureGuests_`),
+    consolidator-protected, included in the Rebuild flow.
+  - **Menu > Sync guest names from Team**: after adding a guest's e-mail
+    to Team, rewrites all their `Name{email}` rows across every month
+    tab to exactly the Team name (guest history merges with their
+    future entries in Analytics/digest), and clears their row from
+    Guests. Rows whose e-mail isn't in Team yet are left untouched for
+    the next run. Consolidated/Analytics need no rebuild — they are
+    live views over the month tabs.
+  - Weekly digest now groups guests **by e-mail** (stable identity) and
+    displays the latest `Name{email}` label — name typos between visits
+    no longer split one person into several digest lines.
+  - Anonymous sessions (no login e-mail at all) are still refused —
+    entries must be traceable to someone.
+  - Spec: §5 "Entered By" + §7 entry flow updated; decision log D23
+    (guests, not rejections) and D24 (Team sync renames guest rows);
+    deployment guide: upgrade note (hard block replaced by guest flow
+    on deploy), verify-step now expects the guest banner, two new
+    troubleshooting rows; version bumped to v1.7.0.
+
 - **Configuration tab — sheet-driven dropdown lists (zero-code edits)**
   (`apps-script/Code.gs`, `apps-script/Index.html`, README,
   `docs/requirements.md`, `docs/deployment.md`):

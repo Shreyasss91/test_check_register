@@ -30,18 +30,22 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 10. Approve permissions: *Review permissions* → account →
     *Advanced* → *Go to … (unsafe)* → **Allow**
     (expected warning: you authored the script yourself).
-11. The Sheet now has tabs `Master`, `Team`, `Configuration`,
+11. The Sheet now has tabs `Master`, `Team`, `Configuration`, `Guests`,
      `_Keys` (hidden — leave it alone), current month, `Consolidated`,
      `Analytics`.
 12. **Existing workbooks upgrading to this version:** run
      `setupWorkbook` once (creates the `Configuration` tab with the
-     current meter-status list in column A), then menu
-     *Meter Register > Refresh check formulas (all months)* to rewrite the
-     ⚠-check formulas on existing month tabs with the normalized versions
-     and add the Spot-* detail columns. Month tabs created after the
-     upgrade get them automatically. Existing meter-status dropdowns are
-     re-pointed at `Configuration` column A (live from then on); stored
-     status values are untouched.
+     current meter-status list in column A, and the `Guests` tab), then
+     menu *Meter Register > Refresh check formulas (all months)* to
+     rewrite the ⚠-check formulas on existing month tabs with the
+     normalized versions and add the Spot-* detail columns. Month tabs
+     created after the upgrade get them automatically. Existing
+     meter-status dropdowns are re-pointed at `Configuration` column A
+     (live from then on); stored status values are untouched. The
+     previous "not authorized" hard block for unknown logins is replaced
+     by the guest flow (v1.7.0) — the web app starts accepting them as
+     `Name{email}` with a `Guests` log as soon as this version is
+     deployed.
 
 ## D. Fill reference data
 
@@ -87,7 +91,9 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 21. Submit one test entry against an RR-SAMPLE meter → row appears in the
     month tab and in `Consolidated`; "Entered By" is correct.
 22. Open the URL from a Gmail **not** in `Team`
-     → must show *"Not authorized"*.
+      → must show the yellow **guest banner** (not a block): name field
+      required, header chip shows "not in Team". Submitting records the
+      row as `Name{email}` and adds a row to the `Guests` tab.
 23. Airplane-mode test: submit while offline → yellow queue bar appears;
     reconnect → entry auto-sends within ~30 s.
 
@@ -114,3 +120,5 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 | Inspector submits but no row | Check the month tab isn't locked (closed); check hard-block message shown by the form (unknown RR / PF range) |
 | New Configuration list not in month tabs | Run menu *Meter Register > Apply configuration changes (all months)* — or just wait: the next submit auto-adds the column |
 | "Unknown meter status" on submit | The submitted status isn't in `Configuration` column A (typo, or the form tab was open since before your edit — reload the form) |
+| Guest rows still show `Name{email}` after adding to Team | Run menu *Meter Register > Sync guest names from Team* (also clears them from `Guests`) |
+| `Name{email}` entries flagged by the Entered-By dropdown | Expected: the dropdown warns for values outside Team but never blocks — guest entries are legitimate |

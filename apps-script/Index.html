@@ -38,6 +38,8 @@
     .center { text-align:center; padding:40px 20px; color:#5f6368; }
     .ver { text-align:center; font-size:11px; color:#9aa0a6; margin:2px 0 8px; }
     small.req { color:var(--err); }
+    #guestBar { display:none; background:#fef7e0; color:#7a5b00; font-size:12px;
+                padding:8px 12px; line-height:1.5; border-bottom:1px solid #f0e0a0; }
     #queueBar { display:none; background:#fef7e0; color:#7a5b00; font-size:13px;
                 padding:8px 16px; text-align:center; cursor:pointer; }
   </style>
@@ -49,6 +51,7 @@
   <span class="chip" id="who">…</span>
   <span id="net" class="chip on">online</span>
 </header>
+<div id="guestBar"></div>
 <div id="queueBar" onclick="syncQueue(true)">⚠ <span id="qCount">0</span> saved offline — tap to send<span id="failedNote" style="display:none"> · <span id="fCount">0</span> rejected — tap to retry</span></div>
 
 <main id="app">
@@ -59,7 +62,7 @@
 <button class="submit" id="btn" style="display:none" onclick="onSubmit()">Submit inspection</button>
 
 <script>
-  var METERS = {}, QKEY = 'mrq_v1', CONFIG_LISTS = {}, submitting = false;
+  var METERS = {}, QKEY = 'mrq_v1', CONFIG_LISTS = {}, IS_GUEST = false, submitting = false;
 
   /* ---------- boot ---------- */
   window.onload = function () {
@@ -79,12 +82,13 @@
     if (!r || !r.ok) {
       document.getElementById('loading').textContent =
         r && r.reason === 'not_authorized'
-          ? (r.email ? 'Your e-mail ' + r.email + ' is not in the Team list. ' : 'Your e-mail is not in the Team list. ') +
-            'Ask the admin to add your e-mail to the list, or log in with an approved e-mail.'
+          ? 'No login e-mail available. Open this form while logged into your Google account.'
           : ('Error: ' + ((r && r.reason) || 'unknown'));
       return;
     }
-    document.getElementById('who').textContent = r.user.name;
+    IS_GUEST = !!r.user.guest;
+    document.getElementById('who').textContent =
+      IS_GUEST ? (r.user.name || 'guest') + ' (not in Team)' : r.user.name;
     CONFIG_LISTS = r.configLists || {};
     r.meters.forEach(function (m) {
       METERS[normKey(m.rr)] = m;
@@ -123,7 +127,21 @@
       });
       extraCard += '</div></div>';
     }
+    var guestCard = '';
+    if (IS_GUEST) {
+      var gb = document.getElementById('guestBar');
+      gb.innerHTML = 'ℹ You are <b>not in the Team list</b> yet (' + esc(r.user.email) + '). ' +
+        'You can still submit — entries are recorded as <b>Your name{' + esc(r.user.email) + '}</b> ' +
+        'until the admin adds you. Ask them to add your e-mail to the Team tab.';
+      gb.style.display = 'block';
+      guestCard = '<div class="card">' +
+        '<label>Your name <small class="req">*</small> (required while not in Team)</label>' +
+        '<input id="guestName" autocomplete="name" maxlength="60" placeholder="as it should appear in the register" value="' +
+          esc(r.user.name || '') + '">' +
+      '</div>';
+    }
     document.getElementById('app').innerHTML =
+      guestCard +
       '<div class="card">' +
         '<div class="row">' +
           '<div><label>Date</label><input type="date" id="date" value="' + today + '"></div>' +
@@ -308,6 +326,12 @@
     if (!p.rr && !p.accountId) return err('Enter RR Number or Account ID');
     if (p.ckwh === '') return err('CKWh reading is required');
     if (p.prk === '')  return err('Pr kW reading is required');
+    if (IS_GUEST) {
+      var gEl = document.getElementById('guestName');
+      if (gEl) p.guestName = gEl.value.trim();
+      if (!p.guestName) return err('Enter your name — you are not in the Team list yet');
+      if (/[{}]/.test(p.guestName)) return err('Name cannot contain { or }');
+    }
     return p;
   }
 
