@@ -62,7 +62,7 @@
 <button class="submit" id="btn" style="display:none" onclick="onSubmit()">Submit inspection</button>
 
 <script>
-  var METERS = {}, QKEY = 'mrq_v1', CONFIG_LISTS = {}, IS_GUEST = false, submitting = false;
+  var QKEY = 'mrq_v1', CONFIG_LISTS = {}, IS_GUEST = false, submitting = false;
 
   /* ---------- boot ---------- */
   window.onload = function () {
@@ -90,25 +90,6 @@
     document.getElementById('who').textContent =
       IS_GUEST ? (r.user.name || 'guest') + ' (not in Team)' : r.user.name;
     CONFIG_LISTS = r.configLists || {};
-    r.meters.forEach(function (m) {
-      METERS[normKey(m.rr)] = m;
-      if (m.accountId) METERS[normKey(m.accountId)] = m;
-    });
-
-    var dlsRR = document.createElement('datalist'); dlsRR.id = 'rrList';
-    var dlsAC = document.createElement('datalist'); dlsAC.id = 'acList';
-    r.meters.forEach(function (m) {
-      var o = document.createElement('option');
-      o.value = m.rr; o.label = m.name ? m.name + ' · ' + m.make : m.make;
-      dlsRR.appendChild(o);
-      if (m.accountId) {
-        var oa = document.createElement('option');
-        oa.value = m.accountId; oa.label = m.name ? m.name + ' · ' + m.make : m.make;
-        dlsAC.appendChild(oa);
-      }
-    });
-    document.body.appendChild(dlsRR);
-    document.body.appendChild(dlsAC);
 
     var today = localISO(new Date());
     var now = new Date();
@@ -150,9 +131,9 @@
         '</div>' +
         '<div class="row">' +
           '<div><label>RR Number</label>' +
-          '<input list="rrList" id="rr" autocomplete="off" placeholder="pick or type"></div>' +
+           '<input id="rr" autocomplete="off" placeholder="type RR number"></div>' +
           '<div><label>Account ID</label>' +
-          '<input list="acList" id="acct" autocomplete="off" placeholder="either one is enough"></div>' +
+           '<input id="acct" autocomplete="off" placeholder="either one is enough"></div>' +
         '</div>' +
         '<div id="meterInfo"></div>' +
         '<details><summary>Meter details (optional – edit what you see at the spot)</summary><div class="grid6">' +
@@ -231,12 +212,56 @@
   // matches the server-side normalizeKey_(): letters/digits only, lowercased
   function normKey(s) { return String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase(); }
 
+  /* Meter resolution is server-side (Master holds 15-30k rows — shipping
+     it to the browser was megabytes and slow). onRR debounces keystrokes,
+     asks lookupMeter for whichever field changed, and ignores responses
+     that no longer match the current input (stale replies). */
+  var rrTimer = null, rrSeq = 0, rrShown = 0, lastMeter = null, meterCache = {};
+
   function onRR() {
     var rrV = document.getElementById('rr').value.trim();
     var acV = document.getElementById('acct').value.trim();
-    var m = (rrV && METERS[normKey(rrV)]) || (acV && METERS[normKey(acV)]) || null;
+    var q = rrV || acV;
     var box = document.getElementById('meterInfo');
-    if (!m) { box.style.display = 'none'; return; }
+
+    if (!q) { box.style.display = 'none'; lastMeter = null; return; }
+    if (meterCache[normKey(q)]) { showMeter(meterCache[normKey(q)]); return; }
+
+    box.style.display = 'block';
+    box.textContent = 'Looking up ' + q + '…';
+    box.style.whiteSpace = 'pre-line';
+
+    if (rrTimer) clearTimeout(rrTimer);
+    rrTimer = setTimeout(function () {
+      var seq = ++rrSeq;
+      var asked = normKey(q);
+      google.script.run
+        .withSuccessHandler(function (r) {
+          if (seq !== rrSeq) return; // user kept typing - ignore the stale reply
+          var rrNow = document.getElementById('rr').value.trim();
+          var acNow = document.getElementById('acct').value.trim();
+          var qNow = rrNow || acNow;
+          if (normKey(qNow) !== asked) return; // input changed mid-flight
+          if (!r || !r.ok || !r.meter) {
+            meterCache[asked] = null;
+            box.textContent = 'No meter found for "' + q + '" — check the number or add it to Master.';
+            lastMeter = null;
+            return;
+          }
+          meterCache[asked] = r.meter;
+          showMeter(r.meter);
+        })
+        .withFailureHandler(function (e) {
+          if (seq !== rrSeq) return;
+          box.textContent = 'Lookup failed (' + (e && e.message || 'network') + ') — you can still submit; the server re-checks.';
+          lastMeter = null;
+        })
+        .lookupMeter(q);
+    }, 300);
+  }
+
+  function showMeter(m) {
+    var box = document.getElementById('meterInfo');
     box.textContent = 'Name: ' + (m.name || '—') + ' · Acct: ' + (m.accountId || '—') +
       ' · MR ID: ' + (m.mrid || '—') + '\n' +
       'Make: ' + (m.make || '—') + ' · S.No: ' + (m.serial || '—') +
@@ -259,8 +284,6 @@
       setVal('mdLocation', m.spot, true);
     }
   }
-
-  var lastMeter = null;
 
   function setVal(id, v, force) {
     var el = document.getElementById(id);

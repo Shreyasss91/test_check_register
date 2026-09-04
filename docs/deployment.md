@@ -52,7 +52,9 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
      previous "not authorized" hard block for unknown logins is replaced
      by the guest flow (v1.7.0) — the web app starts accepting them as
      `Name{email}` with a `Guests` log as soon as this version is
-     deployed.
+     deployed. With v1.10.0 Master can hold ~30,000 meters: the form no
+     longer downloads Master (it resolves each RR via a fast server
+     lookup) and every read covers all rows, not just the first 1,000.
 
 ## D. Fill reference data
 
@@ -132,3 +134,4 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 | Guest rows still show `Name{email}` after adding to Team | Run menu *Meter Register > Sync guest names from Team* (also clears them from `Guests`) |
     | `Name{email}` entries flagged by the Entered-By dropdown | Expected: the dropdown warns for values outside Team but never blocks — guest entries are legitimate |
     | Meter still "Unknown RR" or history/duplicate flags look wrong after upgrading to v1.8.0 | Re-run menu *Meter Register > Refresh check formulas (all months)* — it now also rewrites the hidden `_Keys` mirror so both key generations match |
+    | New/edited Master meter not resolving in the form right away | The lookup index rebuilds itself when Master's row count changes; after swapping RR values in place (same row count), run *Meter Register > Refresh check formulas (all months)* to force a rebuild |

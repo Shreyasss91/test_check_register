@@ -22,9 +22,9 @@
  */
 
 var CONFIG = {
-  version: 'v1.9.0', // bump on every deploy; shown in the form footer
+  version: 'v1.10.0', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
-  maxMasterRows: 1000,
+  maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
   maxConfigValues: 100, // per Configuration column
   maxGuestRows: 500,
@@ -321,6 +321,7 @@ function onOpen() {
 function setupWorkbook() {
   var ss = SpreadsheetApp.getActive();
   var migrated = buildMaster_(ss);
+  invalidateMeterIndex_(); // Master may have been migrated/reordered — drop the cached keys
   buildTeam_(ss);
   buildConfiguration_(ss);
   buildGuests_(ss);
@@ -598,6 +599,7 @@ function refreshCheckFormulas() {
   ensureConfiguration_(ss);
   syncConfigColumns_(ss);
   refreshKeys_(ss); // re-point the hidden key mirror at the current normalization
+  invalidateMeterIndex_(); // consolidator's "I edited Master" moment - force re-index
   var months = monthSheets_(ss);
   months.forEach(function (name) {
     var sh = ss.getSheetByName(name);
@@ -908,6 +910,170 @@ function currentUser_(ss) {
   return { email: email, name: null, guest: true };
 }
 
+/* ============ meter index (30k-row Master performance) ============
+   The form no longer ships Master to the browser (15-30k rows made the
+   payload multi-megabyte and meter resolution O(n) in the phone). Instead:
+   - The RR/Account-ID keys are read ONCE (2 columns only), normalized to
+     key -> { rr, acc, row }, and stored in CacheService SHARDED by key
+     hash — one lookup fetches exactly one small JSON shard, never the
+     whole map. Shards are self-contained JSON, so partial expiry just
+     triggers a rebuild.
+   - Full meter details (Tariff, SANC, DOS, …) are NOT indexed; they are
+     read from the single Master row (by stored row number) only when the
+     card needs them — one 19-cell read instead of 30k x 19.
+   - A stamp (Master's last row) detects any append/delete; rebuilds also
+     happen when shards are missing. Submits reuse the same index instead
+     of re-scanning Master on every request.
+   - Master health check still scans everything, but it is a deliberate
+     consolidator action, not a per-keystroke path. */
+var METER_INDEX = {
+  shards: 128,
+  keyPrefix: 'mridx_v1_s',
+  stampKey: 'mridx_v1_stamp'
+};
+
+// stable 32-bit FNV-1a so a key always lands in the same shard
+function shardForKey_(key) {
+  var h = 0x811c9dc5;
+  for (var i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = (h * 0x01000193) >>> 0;
+  }
+  return h % METER_INDEX.shards;
+}
+
+// builds the sharded index into the script cache. Keys are NAMESPACED:
+// 'r:<normkey>' for RR Numbers, 'a:<normkey>' for Account IDs — a meter's
+// Account ID can never collide with another meter's RR Number (both are
+// free-typed identifiers). Reads Master A:B only (2 cols — fast at 30k rows)
+function buildMeterIndex_(ss) {
+  var sh = ss.getSheetByName('Master');
+  var last = Math.min(sh.getLastRow(), CONFIG.maxMasterRows + 1);
+  var shards = [];
+  for (var s = 0; s < METER_INDEX.shards; s++) shards.push({});
+
+  if (last >= 2) {
+    var vals = sh.getRange(2, 1, last - 1, 2).getDisplayValues();
+    for (var i = 0; i < vals.length; i++) {
+      var rr = String(vals[i][0] || '').trim();
+      if (!rr) continue;
+      var row = i + 2;
+      var acc = String(vals[i][1] || '').trim();
+
+      var k = 'r:' + normalizeKey_(rr);
+      var ks = shardForKey_(k);
+      if (!shards[ks][k]) shards[ks][k] = { rr: rr, acc: acc, row: row };
+
+      if (acc) {
+        var ak = 'a:' + normalizeKey_(acc);
+        var as = shardForKey_(ak);
+        if (!shards[as][ak]) {
+          // separate object from the RR entry: an ambiguous ACCOUNT must
+          // never mark its meter's RR key ambiguous too
+          shards[as][ak] = { rr: rr, acc: acc, row: row };
+        } else if (shards[as][ak].rr !== rr) {
+          shards[as][ak] = { rr: shards[as][ak].rr, acc: shards[as][ak].acc,
+            row: shards[as][ak].row, ambiguous: true };
+        }
+      }
+    }
+  }
+
+  var cache = CacheService.getScriptCache();
+  var puts = {};
+  for (var b = 0; b < METER_INDEX.shards; b++) {
+    puts[METER_INDEX.keyPrefix + b] = JSON.stringify(shards[b]);
+  }
+  // putAll replaces same-key values; batched in one call for speed
+  cache.putAll(puts, 21600);
+  cache.put(METER_INDEX.stampKey, meterIndexStamp_(ss), 21600);
+}
+
+// freshness stamp: last row of Master (raw — NOT clamped to maxMasterRows:
+// a clamped stamp would saturate at the cap and miss changes beyond it).
+// Any append/delete/clear moves it. An in-place edit that keeps the row
+// count (swap one RR for another) is missed — consolidate with menu
+// Refresh check formulas (which calls invalidateMeterIndex_) after such
+// edits.
+function meterIndexStamp_(ss) {
+  return String(ss.getSheetByName('Master').getLastRow());
+}
+
+// true when the cached index matches Master's current stamp
+function meterIndexFresh_(cache, ss) {
+  return cache.get(METER_INDEX.stampKey) === meterIndexStamp_(ss);
+}
+
+// key -> meter info, or null when unknown (expects an ALREADY-NAMESPACED
+// key: 'r:<norm>' for RR, 'a:<norm>' for Account ID). Reads ONE cache
+// shard; rebuilds the whole index (Master changed or shards expired) and
+// retries once.
+function lookupMeterByKey_(ss, key) {
+  if (!key) return null;
+  var cache = CacheService.getScriptCache();
+  var shardIdx = shardForKey_(key);
+  var raw = cache.get(METER_INDEX.keyPrefix + shardIdx);
+  if (raw === null || !meterIndexFresh_(cache, ss)) {
+    buildMeterIndex_(ss);
+    raw = cache.get(METER_INDEX.keyPrefix + shardIdx);
+    if (raw === null) return null;
+  }
+  var entry = JSON.parse(raw)[key];
+  return entry || null;
+}
+
+// drops the cached index (after consolidator rebuilds/migrations that
+// don't move the last row) - the next lookup rebuilds it
+function invalidateMeterIndex_() {
+  var cache = CacheService.getScriptCache();
+  var all = [METER_INDEX.stampKey];
+  for (var b = 0; b < METER_INDEX.shards; b++) all.push(METER_INDEX.keyPrefix + b);
+  cache.removeAll(all);
+}
+
+// full meter details for the info card / drift check: ONE Master row read
+function meterDetailsByRow_(ss, row) {
+  if (row < 2 || row > CONFIG.maxMasterRows + 1) return null;
+  var v = ss.getSheetByName('Master').getRange(row, 1, 1, 19).getDisplayValues()[0];
+  if (!String(v[0] || '').trim()) return null;
+  return {
+    rr: String(v[0] || '').trim(), accountId: String(v[1] || '').trim(),
+    tariff: String(v[2] || '').trim(), name: String(v[3] || '').trim(),
+    sancKw: String(v[4] || '').trim(), sancHp: String(v[5] || '').trim(),
+    contDem: String(v[6] || '').trim(), dos: String(v[7] || '').trim(),
+    status: String(v[8] || '').trim(), mrid: String(v[9] || '').trim(),
+    mdDay: String(v[10] || '').trim(), sf: String(v[11] || '').trim(),
+    constant: String(v[12] || '').trim(), serial: String(v[13] || '').trim(),
+    make: String(v[14] || '').trim(), phases: String(v[15] || '').trim(),
+    dtc: String(v[16] || '').trim(), feeder: String(v[17] || '').trim(),
+    spot: String(v[18] || '').trim()
+  };
+}
+
+// RPC for the form's live meter-info card: resolves RR *or* Account ID
+function lookupMeter(query) {
+  try {
+    var ss = SpreadsheetApp.getActive();
+    var user = currentUser_(ss);
+    if (!user) return { ok: false };
+
+    var q = String(query || '').trim();
+    if (!q) return { ok: true, meter: null };
+    if (q.length > 50) return { ok: true, meter: null };
+
+    // resolve RR first, then Account — mirrors the form's field priority
+    var hit = lookupMeterByKey_(ss, 'r:' + normalizeKey_(q));
+    if (!hit) hit = lookupMeterByKey_(ss, 'a:' + normalizeKey_(q));
+    if (!hit) return { ok: true, meter: null };
+    if (hit.ambiguous) return { ok: true, meter: null, ambiguous: true };
+
+    var m = meterDetailsByRow_(ss, hit.row);
+    return { ok: true, meter: m, other: hit.acc && hit.acc !== q ? hit.acc : null };
+  } catch (err) {
+    return { ok: false, reason: String(err && err.message || err) };
+  }
+}
+
 function getBootstrap() {
   try {
     var ss = SpreadsheetApp.getActive();
@@ -929,23 +1095,8 @@ function getBootstrap() {
       }
     }
 
-    var meters = [];
-    var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 19).getDisplayValues();
-    for (var i = 0; i < mv.length; i++) {
-      if (mv[i][0].trim()) {
-        meters.push({
-          rr: mv[i][0].trim(), accountId: mv[i][1].trim(),
-          tariff: mv[i][2].trim(), name: mv[i][3].trim(),
-          sancKw: mv[i][4].trim(), sancHp: mv[i][5].trim(),
-          contDem: mv[i][6].trim(), dos: mv[i][7].trim(), status: mv[i][8].trim(),
-          mrid: mv[i][9].trim(), mdDay: mv[i][10].trim(), sf: mv[i][11].trim(),
-          constant: mv[i][12].trim(), serial: mv[i][13].trim(),
-          make: mv[i][14].trim(), phases: mv[i][15].trim(),
-          dtc: mv[i][16].trim(), feeder: mv[i][17].trim(),
-          spot: mv[i][18].trim()
-        });
-      }
-    }
+    // meters are NOT shipped to the browser anymore — the form resolves
+    // them one-by-one via lookupMeter (Master can hold 30k rows)
     var lists = readConfigLists_(ss);
     return {
       ok: true,
@@ -953,8 +1104,7 @@ function getBootstrap() {
       version: CONFIG.version,
       currentMonth: Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM'),
       meterStatuses: lists[CONFIG.meterStatusHeader],
-      configLists: lists,
-      meters: meters
+      configLists: lists
     };
   } catch (err) {
     return { ok: false, reason: String(err && err.message || err) };
@@ -1144,33 +1294,15 @@ function validatePayload_(ss, p) {
   });
 
   // hard rule 1: RR or Account ID must resolve to exactly one Master row
-  // (normalized match: case-insensitive, spaces and special characters removed)
-  var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 2).getDisplayValues();
-  var canon = {}; // normalized key -> meter info
-  for (var j = 0; j < mv.length; j++) {
-    var mRR = mv[j][0].trim();
-    if (!mRR) continue;
-    var info = { rr: mRR, acc: mv[j][1].trim() };
-    if (!canon[normalizeKey_(mRR)]) canon[normalizeKey_(mRR)] = info;
+  // (normalized match via the cached meter index — no full Master scan)
+  var hitRR = rrRaw ? lookupMeterByKey_(ss, 'r:' + normalizeKey_(rrRaw)) : null;
+  var hitAC = acRaw ? lookupMeterByKey_(ss, 'a:' + normalizeKey_(acRaw)) : null;
 
-    if (info.acc) {
-      var an = normalizeKey_(info.acc);
-      if (!canon[an]) canon[an] = info;
-      else if (canon[an].rr !== mRR) canon[an].ambiguous = true;
-    }
-  }
-
-  var hitRR = rrRaw ? canon[normalizeKey_(rrRaw)] : null;
-  var hitAC = acRaw ? canon[normalizeKey_(acRaw)] : null;
-
-  if (rrRaw && !hitRR) {
+  if (rrRaw && (!hitRR || hitRR.ambiguous)) {
     return { error: 'Unknown RR Number "' + rrRaw + '" - add it to Master first.' };
   }
-  if (acRaw && !hitAC) {
-    return { error: 'Unknown Account ID "' + acRaw + '" - add it to Master first.' };
-  }
-  if (acRaw && hitAC.ambiguous) {
-    return { error: 'Account ID "' + acRaw + '" matches multiple meters in Master - it must be unique.' };
+  if (acRaw && (!hitAC || hitAC.ambiguous)) {
+    return { error: 'Unknown Account ID "' + acRaw + '" - add it to Master first (it must be unique).' };
   }
   var rr;
   if (rrRaw && acRaw) {
@@ -1225,23 +1357,21 @@ function computeWarnings_(ss, sh, row, tabName, v, who) {
     }
   }
 
-  // spot-entered details vs Master (drift) — same rule as the ⚠ formula
+  // spot-entered details vs Master (drift) — same rule as the ⚠ formula.
+  // Resolved through the meter index + ONE Master row read (no 30k scan)
   if (v.md) {
-    var mv = ss.getSheetByName('Master').getRange(2, 1, CONFIG.maxMasterRows, 19).getDisplayValues();
-    var mrow = null;
-    var rrN = normalizeKey_(v.rr);
-    for (var q = 0; q < mv.length; q++) {
-      if (normalizeKey_(mv[q][0]) === rrN) { mrow = mv[q]; break; }
-    }
-    if (mrow) {
-      // Master: M constant, N serial, O make, P phases, Q DTC, R feeder, S location
-      var masterMd = { constant: mrow[12], make: mrow[14], serial: mrow[13],
-        phases: mrow[15], dtc: mrow[16], feeder: mrow[17], location: mrow[18] };
-      var diffs = [];
-      ['constant', 'make', 'serial', 'phases', 'dtc', 'feeder', 'location'].forEach(function (fld) {
-        if (v.md[fld] && String(masterMd[fld] || '').trim() !== v.md[fld]) diffs.push(fld);
-      });
-      if (diffs.length) w.push('Spot details differ from Master (' + diffs.join(', ') + ') - update Master?');
+    var hit = lookupMeterByKey_(ss, 'r:' + normalizeKey_(v.rr));
+    if (hit) {
+      var mrow = meterDetailsByRow_(ss, hit.row);
+      if (mrow) {
+        var masterMd = { constant: mrow.constant, make: mrow.make, serial: mrow.serial,
+          phases: mrow.phases, dtc: mrow.dtc, feeder: mrow.feeder, location: mrow.spot };
+        var diffs = [];
+        ['constant', 'make', 'serial', 'phases', 'dtc', 'feeder', 'location'].forEach(function (fld) {
+          if (v.md[fld] && String(masterMd[fld] || '').trim() !== v.md[fld]) diffs.push(fld);
+        });
+        if (diffs.length) w.push('Spot details differ from Master (' + diffs.join(', ') + ') - update Master?');
+      }
     }
   }
   return w;

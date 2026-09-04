@@ -25,7 +25,7 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 
 | Tab | Purpose |
 |---|---|
-| `Master` | Meter list: RR Number, account ID, Tariff, name, SANC_KW/HP, CONT_DEM, DOS, STATUS, MR ID, MR DAY, SF, meter constant, serial no, make, phases, DTC, feeder, location |
+| `Master` | Meter list (up to ~30,000 rows): RR Number, account ID, Tariff, name, SANC_KW/HP, CONT_DEM, DOS, STATUS, MR ID, MR DAY, SF, meter constant, serial no, make, phases, DTC, feeder, location |
 | `Team` | Inspectors: Email + Name (login → identity) |
 | `Guests` | Auto-filled log of form users **not** in Team: Email, typed Name, First/Last Seen, Submissions — your pending-approvals list |
 | `Configuration` | All dropdown lists — one **column** per list (header = name, values below). `Meter Status` (col A) drives the status dropdown; every other column auto-becomes an extra dropdown in the form + a dynamic month-tab column |
@@ -131,6 +131,8 @@ by > ±1 kWh · wrong-month date · duplicates · missing PF. All RR matching
 
 - Open the pinned form URL once → browser menu → *Add to Home screen*.
 - Date/Time are pre-filled at the spot and stay editable.
+- Type an RR Number (or Account ID) — the meter's details card loads from
+  the server in a moment (Master is large; the form doesn't download it).
 - **Meter details (optional)** under the RR field opens Constant/Make/
   Serial/Phases/DTC/Feeder/Location — pre-filled from Master; correct
   them at the spot if the meter differs.

@@ -7,6 +7,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Meter lookup re-architected for a 15–30k-row Master**
+  (`apps-script/Code.gs`, `apps-script/Index.html`, README,
+  `docs/requirements.md`, `docs/deployment.md`):
+  - Problem: the form shipped the entire Master to the browser on every
+    load — with ~15,000 populated rows the payload was megabytes, the
+    meter card resolved slowly or never, and `maxMasterRows = 1000`
+    silently capped every Master read: meters beyond row 1000 never
+    reached the form, were invisible to the sheet-side `_Keys`
+    lookups/⚠ checks, and would even be rejected at submit as
+    "Unknown RR".
+  - **The form no longer downloads Master.** `getBootstrap` drops the
+    `meters` payload (user, version, config lists only); the meter-info
+    card resolves through a new `lookupMeter` RPC as the inspector
+    types — debounced 300 ms, stale in-flight replies ignored, resolved
+    meters memoized per session, and a graceful
+    "you can still submit — the server re-checks" message if the
+    lookup call itself fails. RR/Account-ID autocomplete datalists are
+    gone (they were the 15k-option list bogging the page down).
+  - **Server-side sharded key index** (`METER_INDEX`): Master's RR and
+    Account-ID columns are read once, normalized, and stored in 128
+    CacheService shards (key → { rr, acc, row }, 6 h TTL, ~12 KB per
+    shard at 30k rows). A lookup reads exactly ONE shard — no whole-map
+    reassembly. A stamp (Master's last row) detects any
+    append/delete/clear and triggers a rebuild automatically; shards
+    expiring mid-life just rebuild on next use. Full details (Tariff,
+    SANC, DOS, …) are read from the single Master row only when the
+    card needs them — one 19-cell read instead of 30k×19.
+  - **Submits reuse the index**: `validatePayload_` hard rule 1 (RR /
+    Account-ID resolution, ambiguity and mismatch checks) and the
+    spot-drift check in `computeWarnings_` now go through
+    `lookupMeterByKey_` + a one-row read — no more full 30k-row scans
+    on every request.
+  - `maxMasterRows` raised 1000 → 30000, so every Master read
+    (health check, `_Keys` mirror, validation) covers the whole sheet.
+  - Index invalidation on the consolidator paths that restructure
+    Master without moving the last row: `setupWorkbook` (migration)
+    and *Refresh check formulas (all months)* — the documented
+    "I edited Master" moment.
+  - Version bumped to v1.10.0. Spec: D27; README Master row (30k) +
+    field tips; deployment upgrade note + troubleshooting row
+    (in-place RR swap → run the refresh menu).
+
 ### Fixed
 
 - **`setupWorkbook` crash: "Cannot call SpreadsheetApp.getUi() from this
