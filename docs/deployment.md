@@ -52,9 +52,16 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
      previous "not authorized" hard block for unknown logins is replaced
      by the guest flow (v1.7.0) — the web app starts accepting them as
      `Name{email}` with a `Guests` log as soon as this version is
-     deployed. With v1.10.0 Master can hold ~30,000 meters: the form no
-     longer downloads Master (it resolves each RR via a fast server
-     lookup) and every read covers all rows, not just the first 1,000.
+     deployed.
+     - **v1.10.0 — Master scales to ~30,000 meters and the form never
+       downloads it.** Meter resolution becomes a per-keystroke
+       `lookupMeter` RPC (debounced 300 ms, memoized per session)
+       against a 128-shard `METER_INDEX` cache. The index rebuilds
+       automatically when Master's row count changes; in-place RR swaps
+       (same row count) need the *Refresh check formulas (all months)*
+       menu, which also invalidates the index. Every read (health check,
+       `_Keys` mirror, validation) now covers all rows — no more
+       silent 1,000-row cap.
 
 ## D. Fill reference data
 
@@ -107,6 +114,11 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
       row as `Name{email}` and adds a row to the `Guests` tab.
 23. Airplane-mode test: submit while offline → yellow queue bar appears;
     reconnect → entry auto-sends within ~30 s.
+24. **Lookup test (v1.10.0):** open the URL and start typing a real RR
+    Number — the meter-info card should appear in ~300 ms (Tariff/SANC/
+    DOS/STATUS/Make/Serial/Constant/Phases). If it never resolves, the
+    `METER_INDEX` didn't populate: re-run `setupWorkbook` and check the
+    execution log for cache errors.
 
 ## G. Future updates
 
@@ -117,6 +129,12 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 
     Keeping the same deployment means the same URL — inspectors' bookmarks
     never break.
+
+    *After any edit to Master in place* (RR value swapped, row reordered,
+    data corrected without append/delete): run menu
+    *Meter Register > Refresh check formulas (all months)* — it rewrites
+    `_Keys` and invalidates the meter index, so lookups pick up the change
+    on the next request.
 
 ## Troubleshooting
 

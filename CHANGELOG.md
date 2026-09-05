@@ -17,6 +17,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `Code.gs` and the inline `<script>` blocks of `Index.html`, and the
   changelog → commit → push deploy order with the `CONFIG.version`
   bump rule.
+- **`docs/requirements.md` §13 *See also*** — links to `CLAUDE.md` /
+  `AGENTS.md` so the spec and the AI-agent invariant docs cross-reference
+  each other (D27 footer now also points at them).
+
+### Changed
+
+- **README, requirements spec, and deployment guide synced to v1.10.0**
+  (`README.md`, `docs/requirements.md`, `docs/deployment.md`):
+  - `README.md` *How it fits together* diagram now shows the
+    `lookupMeter` RPC and the 128-shard `METER_INDEX` (the form no
+    longer downloads Master); added an *For AI coding assistants*
+    callout pointing at `CLAUDE.md` / `AGENTS.md`; Master row of the
+    Tabs table now uses the exact 20-column order from
+    `CONFIG.masterHeaders`.
+  - `docs/requirements.md` header now states the deployed code version
+    (v1.10.0) alongside the spec version (v2.0); §6 enforcement names
+    `lookupMeterByKey_` for the server side and the `_Keys` mirror
+    *plus* the per-month-tab hidden key column (AA) for the sheet side;
+    §7 form behavior describes the debounced ~300 ms `lookupMeter` RPC
+    with the graceful "you can still submit — the server re-checks"
+    fallback; D27 footer links at `CLAUDE.md` / `AGENTS.md`.
+  - `docs/deployment.md` §C step 12 promotes v1.10.0's no-Master-
+    download change to its own bullet (it was buried in the v1.9.0
+    migration paragraph); §F adds a Lookup test step (type a real RR,
+    expect the meter-info card in ~300 ms); §G step 25 adds the
+    *in-place Master edit → run Refresh check formulas* reminder
+    (also invalidates the meter index).
 
 ### Changed
 

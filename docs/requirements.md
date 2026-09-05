@@ -1,6 +1,8 @@
 # Requirements — Digital Meter Inspection Register
 
 Status: **v2.0 — approved for build** · 2026-08-25
+Deployed code version: **v1.10.0** (authoritative value lives in
+`apps-script/Code.gs` `CONFIG.version`; the form footer shows it live).
 
 ## 1. Problem
 
@@ -123,11 +125,12 @@ Flagged inline (⚠ column, entry still accepted):
 
 Enforcement: hard-blocks run **server-side in the web app** on Submit
 (rejected with a message); flag-rules are written into the row's ⚠ column
-by the sheet formulas as before. Both layers compare RR Numbers
-**normalized** (case-insensitive; spaces *and* special characters removed —
-letters/digits only) — the sheet side
-does this through a hidden auto-generated `_Keys` tab plus a hidden key
-column (AA) in each month tab, so hand-edited or legacy rows with variant
+by the sheet formulas as before. The server side resolves RR/Account-ID
+through `lookupMeterByKey_` (a 128-shard `METER_INDEX` cache, see D27);
+the sheet side compares RR Numbers **normalized** (case-insensitive; spaces
+*and* special characters removed — letters/digits only) through a hidden
+auto-generated `_Keys` mirror tab **plus** a hidden per-month-tab key
+column (AA), so hand-edited or legacy rows with variant
 casing/spacing/punctuation are checked identically to the server.
 
 ## 7. Entry web app (Apps Script)
@@ -140,10 +143,15 @@ casing/spacing/punctuation are checked identically to the server.
   are recorded as `Name{email}` with the e-mail captured in `Guests`.
   Only a completely anonymous session (no login e-mail at all) is
   refused, since it cannot be traced to anyone.
-- Form behavior: Date/Time pre-filled with device now (editable); picking an
-  RR Number instantly shows Make/Serial/Constant/Phases; Submit calls
-  server → hard-block validation → append to the month tab of the entry's
-  Date (creating that month tab if absent).
+- Form behavior: Date/Time pre-filled with device now (editable); as the
+  inspector types an RR Number (debounced ~300 ms) the server resolves it
+  via the `lookupMeter` RPC against the cached `METER_INDEX` and the
+  meter-info card loads (Make/Serial/Constant/Phases/Tariff/SANC/DOS/
+  STATUS); resolved meters are memoized per session. If the lookup call
+  fails the form keeps working and shows a "you can still submit — the
+  server re-checks" notice; Submit calls server → hard-block validation →
+  append to the month tab of the entry's Date (creating that month tab if
+  absent).
 - Offline at spot: submissions are stored in the browser (localStorage
   queue) and retried automatically when connectivity returns; queued count
   shown in the UI. Entries keep their spot-time Date/Time.
@@ -200,8 +208,25 @@ format keeps later pivots easy (Entered By, RR Number, month). One live
 | D24 | Adding a guest to Team later: menu *Sync guest names from Team* rewrites their `Name{email}` rows to the exact Team name (and clears them from `Guests`) | guest history merges cleanly into the person's Team identity |
 | D25 | RR/Account-ID normalization strips everything except letters and digits (case-insensitive) — implemented identically server-side (`normalizeKey_`), client-side (`normKey`) and in the sheet key formulas (`_Keys` + month-tab key column) | typed, handwritten or legacy RR Numbers with stray punctuation/dashes/spacing never false-flag or double-count a meter |
 | D26 | Master carries the utility-registry reference block (Tariff, SANC_KW, SANC_HP, CONT_DEM, DOS, STATUS + renamed MR ID / MR DAY / METER CONSTANT / METER_SERIAL_NO) in the export column order; shown in the form's meter card; migrating an existing populated Master re-maps columns in place instead of wiping | inspectors see sanction/demand/status context at the spot; existing workbooks keep their meter data on upgrade |
-| D27 | Master scales to 30,000 meters; the form never downloads Master — meter resolution is a server-side lookup against a cache-sharded key index (RR/Account-ID → row), rebuilt automatically when Master's row count changes; submit validation and spot-drift checks use the same index; a per-session client cache memoizes resolved meters | O(1) lookups and small payloads at any Master size; no false "Unknown RR" from a read cap; one rebuild path to maintain |
+| D27 | Master scales to 30,000 meters; the form never downloads Master — meter resolution is a server-side lookup against a cache-sharded key index (RR/Account-ID → row), rebuilt automatically when Master's row count changes; submit validation and spot-drift checks use the same index; a per-session client cache memoizes resolved meters | O(1) lookups and small payloads at any Master size; no false "Unknown RR" from a read cap; one rebuild path to maintain. Constraints enforced for any future change: see [`CLAUDE.md`](../CLAUDE.md) and [`AGENTS.md`](../AGENTS.md). |
 
 ## 12. Open questions
 
 None — spec complete.
+
+## 13. See also
+
+- [`CLAUDE.md`](../CLAUDE.md) — entry point for AI coding assistants
+  working in this repo: verify commands, deploy order, the highest-leverage
+  invariants in one screen.
+- [`AGENTS.md`](../AGENTS.md) — the source of truth for the architectural
+  invariants that constrain every change: three normalization
+  implementations must stay in lockstep (server `normalizeKey_`, client
+  `normKey`, sheet formulas in `_Keys` + per-tab key col); Master column
+  order is hard-coded across `meterDetailsByRow_`, `masterHealthCheck`,
+  `computeWarnings_` and the `_Keys` formulas; `METER_INDEX` uses Master's
+  raw `getLastRow()` as its freshness stamp (never clamped to
+  `maxMasterRows`); `buildMaster_` migrates in place and never wipes;
+  month-tab fixed layout A..AI plus dynamic config cols from AJ; ES5
+  only (no `let`/`const`/arrow/`console` in `.gs` or `.html` script
+  blocks).

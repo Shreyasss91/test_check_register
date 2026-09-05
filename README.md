@@ -9,9 +9,18 @@ App); the form writes rows into a single consolidator-owned **Google Sheet**
 ## How it fits together
 
 ```
-Inspector's phone ──(web form URL)──▶ Apps Script Web App ──▶ Month tab in Sheet
-     Google login = identity              validates + writes      ▲
-                                                                  └── Consolidated (live)
+Inspector's phone ──(web form URL)──▶ Apps Script Web App
+     Google login = identity         │      │      │
+                                    │      │      └─▶ Month tab in Sheet
+                                    │      │             ▲
+                                    │      │             └── Consolidated (live)
+                                    │      └─▶ lookupMeter RPC (per keystroke,
+                                    │            debounced 300 ms, memoized
+                                    │            per session)
+                                    └─▶ METER_INDEX (128 cache shards,
+                                          auto-rebuilt on Master row-count
+                                          change; one 19-cell read per match)
+
 Consolidator ──(Sheet directly)──▶ Master · Team · close months · exports
 ```
 
@@ -20,12 +29,16 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 - **Not in Team yet? Not blocked** — see *Guests* below.
 - Works offline at spots: submissions queue on the phone and send
   automatically when back online.
+- *For AI coding assistants: read [`CLAUDE.md`](CLAUDE.md) first, then
+  [`AGENTS.md`](AGENTS.md) — they list the invariants future changes must
+  respect (normalization in lockstep, Master column order, `METER_INDEX`
+  stamp semantics, ES5-only).*
 
 ## Tabs
 
 | Tab | Purpose |
 |---|---|
-| `Master` | Meter list (up to ~30,000 rows): RR Number, account ID, Tariff, name, SANC_KW/HP, CONT_DEM, DOS, STATUS, MR ID, MR DAY, SF, meter constant, serial no, make, phases, DTC, feeder, location |
+| `Master` | Meter list (up to ~30,000 rows). Exact 20-column order: RR Number, Account ID, Tariff, NAME, SANC_KW, SANC_HP, CONT_DEM, DOS, STATUS, MR ID, MR DAY, SF, METER CONSTANT, METER_SERIAL_NO, Meter Make, Phases, DTC, Feeder, Location, Notes |
 | `Team` | Inspectors: Email + Name (login → identity) |
 | `Guests` | Auto-filled log of form users **not** in Team: Email, typed Name, First/Last Seen, Submissions — your pending-approvals list |
 | `Configuration` | All dropdown lists — one **column** per list (header = name, values below). `Meter Status` (col A) drives the status dropdown; every other column auto-becomes an extra dropdown in the form + a dynamic month-tab column |
