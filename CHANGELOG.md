@@ -7,6 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`CLAUDE.md` entry-point for future Claude Code sessions** — points
+  at the canonical `AGENTS.md` for the deep invariants and surfaces the
+  highest-leverage ones inline (normalization-in-lockstep, Master
+  column order, `METER_INDEX` stamp semantics, ES5-only, in-place
+  Master migration), plus the `node --check` verify commands for both
+  `Code.gs` and the inline `<script>` blocks of `Index.html`, and the
+  changelog → commit → push deploy order with the `CONFIG.version`
+  bump rule.
+
 ### Changed
 
 - **Meter lookup re-architected for a 15–30k-row Master**
