@@ -30,8 +30,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     submit on both client and server so the label can't be forged into
     an ambiguous identity.
   - Docs synced: requirements §7 / Entered-By row / D23, README guests
-    section, deployment upgrade note + troubleshooting row ("stuck on
-    Loading" is no longer caused by not being logged in).
+    section, deployment upgrade note + troubleshooting rows ("stuck on
+    Loading" is no longer caused by not being logged in; the Team
+    empty-Name case is documented as the only remaining "not
+    authorized" refusal).
   - Version bumped to v1.11.0.
 
 ### Added

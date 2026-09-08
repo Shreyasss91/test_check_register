@@ -148,6 +148,7 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
     | Weekly digest not arriving | Trigger not installed (menu *Meter Register > Install weekly digest trigger*), or it lands in Gmail spam — check that the Apps Script trigger exists under the clock icon in the editor |
     | `setupWorkbook` not in function dropdown | Stale editor after large paste — close the Apps Script tab and reopen `Extensions → Apps Script`; keep `Code.gs` as active tab |
 | "Not authorized" for a real inspector | Their Gmail missing/mistyped in `Team` tab column A (check case/spaces) |
+| Form says "Your e-mail is in the Team tab but the Name column is empty" | The e-mail IS in `Team` but the Name cell (column B) next to it is blank — since v1.11.0 this is the only remaining "not authorized" case. Fill in the Name; the form works on the next reload (no redeploy needed) |
 | Form stuck on "Loading…" | Deployment access not set to *Anyone with a Google account*, or a server error — check Executions. Not being logged into Google is **not** an error since v1.11.0: the form opens in no-email guest mode (`Name (no email)`) |
 | Changes don't appear | Forgot step 25 — old version still deployed |
 | Script file renamed / Index missing | HTML file must be named exactly `Index` |
