@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.12.0', // bump on every deploy; shown in the form footer
+  version: 'v1.13.0', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -1266,6 +1266,7 @@ function validatePayload_(ss, p) {
   if (prk < 0) return { error: 'Pr kW cannot be negative.' };
 
   var b = arr6_(p.blocksKwh), bw = arr6_(p.bkw);
+  if (bw[0] === '') return { error: 'B1 kW (block demand) is required.' };
   for (var i = 0; i < 6; i++) {
     if (b[i] !== '' && b[i] < 0) return { error: 'B' + (i + 1) + ' kWh cannot be negative.' };
     if (bw[i] !== '' && bw[i] < 0) return { error: 'B' + (i + 1) + ' kW cannot be negative.' };

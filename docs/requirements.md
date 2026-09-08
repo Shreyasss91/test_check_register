@@ -81,7 +81,8 @@ No per-person tabs anymore.
 | Reading (CKWh) | manual | main cumulative kWh |
 | B1–B6 kWh | optional | per-block readings where applicable |
 | Reading (Pr kW) | manual | present demand |
-| B1–B6 kW | optional | per-block demand |
+| B1 kW | manual | **required** block demand |
+| B2–B6 kW | optional | per-block demand where applicable |
 | PF | manual | |
 | Meter Status | dropdown | values live in the `Configuration` tab (col A; seeded OK / MNR / Meter burnt / Link burnt / No display / Not accessible / Others). First value in the column = default. Edit/add values in the sheet — the form and month-tab dropdowns pick them up without any code change |
 | Config dropdowns (extra) | dropdown | every `Configuration` column beyond Meter Status renders as an extra optional dropdown in the form; the chosen value is stored in a dynamic month-tab column (36+ / AJ..) and flows into Consolidated/Analytics |

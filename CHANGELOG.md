@@ -9,6 +9,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **B1 kW is now a required entry** (`apps-script/Code.gs`,
+  `apps-script/Index.html`, docs): block demand B1 joins CKWh and
+  Pr kW as a hard-required field — submit is rejected with "B1 kW
+  (block demand) is required." when empty (client checks first, server
+  re-checks; the offline queue parks the rejected entry instead of
+  blocking the rest). B2–B6 kW stay optional, as do all six B kWh
+  readings. Docs synced (requirements §6 field table splits B1 kW from
+  B2–B6 kW); version bumped to v1.13.0.
+
+### Changed
+
 - **New default Meter Status list** (`apps-script/Code.gs`, docs):
   fresh workbooks seed `Configuration` column A — and the built-in
   fallback when the tab is missing — with **OK / MNR / Meter burnt /
