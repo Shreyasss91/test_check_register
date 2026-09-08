@@ -2,6 +2,12 @@ name: Build Meter Inspection APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'android/**'
+      - '.github/workflows/build-android.yml'
 
 jobs:
   build-apk:
@@ -20,10 +26,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle 9.6
+      - name: Set up Gradle 9.7.0
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '9.6'
+          gradle-version: '9.7.0'
 
       - name: Build release APK
         run: gradle :app:assembleRelease
