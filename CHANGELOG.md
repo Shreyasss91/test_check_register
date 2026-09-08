@@ -7,9 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Android APK now targets the deployed Web App directly** (`android/app/build.gradle`, `.github/workflows/build-android.yml`): configured the supplied Apps Script `/exec` deployment URL as the release `WEB_APP_URL` and simplified the manual GitHub Actions build so the workflow builds the configured APK without requiring the URL as an input.
+
 ### Added
 
-- **Android APK wrapper** (`android/`): added a lightweight Android launcher for the deployed Meter Inspection Apps Script Web App. It uses Android Custom Tabs rather than an embedded WebView so the existing Google account authentication/session flow remains in the supported browser surface. Added a Gradle project, launcher icon, build documentation, and a manual GitHub Actions workflow that accepts the deployed `/exec` Web App URL and publishes the release APK as an artifact.
+- **Android APK wrapper** (`android/`): added a lightweight Android launcher for the deployed Meter Inspection Apps Script Web App. It uses Android Custom Tabs rather than an embedded WebView so the existing Google account authentication/session flow remains in the supported browser surface. Added a Gradle project, launcher icon, build documentation, and a manual GitHub Actions workflow that publishes the release APK as an artifact.
 
 ### Changed
 
