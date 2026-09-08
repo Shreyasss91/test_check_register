@@ -83,7 +83,7 @@ No per-person tabs anymore.
 | Reading (Pr kW) | manual | present demand |
 | B1–B6 kW | optional | per-block demand |
 | PF | manual | |
-| Meter Status | dropdown | values live in the `Configuration` tab (col A; seeded OK / Defective / Seal broken / Meter stopped / Burnt / Not accessible). First value in the column = default. Edit/add values in the sheet — the form and month-tab dropdowns pick them up without any code change |
+| Meter Status | dropdown | values live in the `Configuration` tab (col A; seeded OK / MNR / Meter burnt / Link burnt / No display / Not accessible / Others). First value in the column = default. Edit/add values in the sheet — the form and month-tab dropdowns pick them up without any code change |
 | Config dropdowns (extra) | dropdown | every `Configuration` column beyond Meter Status renders as an extra optional dropdown in the form; the chosen value is stored in a dynamic month-tab column (36+ / AJ..) and flows into Consolidated/Analytics |
 | Remarks | optional | |
 | Meter Constant / Make / Serial No / Phases | **auto** | looked up from Master via RR Number (shown live in the form) |

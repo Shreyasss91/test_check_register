@@ -53,6 +53,18 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
      by the guest flow (v1.7.0) — the web app starts accepting them as
      `Name{email}` with a `Guests` log as soon as this version is
      deployed.
+     - **v1.12.0 — new default Meter Status list.** Fresh workbooks seed
+       `Configuration` column A with OK / MNR / Meter burnt / Link
+       burnt / No display / Not accessible / Others (was OK / Defective
+       / Seal broken / Meter stopped / Burnt / Not accessible).
+       **Existing workbooks: do NOT re-run `setupWorkbook` for this** —
+       it rebuilds the Configuration tab from scratch (custom lists in
+       other columns would be lost). Instead edit column A directly:
+       type the new values, clear the old ones; the form and month-tab
+       dropdowns pick the list up live. Rows already recorded keep
+       their stored status text (e.g. "Burnt") — the Entered-By-style
+       warning-only dropdown means old values stay visible, never
+       blocked.
      - **v1.11.0 — no Google login is no longer a hard block.** A
        browser session without a login e-mail opens the form in
        *no-email guest* mode: name required, rows recorded as
@@ -83,8 +95,9 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
      entered.
 15. `Configuration` — every dropdown list: one column per list, header =
     the list's name, values below (first value = the form's default).
-    Column A is `Meter Status` (seeded with OK / Defective / Seal broken /
-    Meter stopped / Burnt / Not accessible). To add a status, just add a
+    Column A is `Meter Status` (seeded with OK / MNR / Meter burnt /
+    Link burnt / No display / Not accessible / Others). To add a
+    status, just add a
     value in the column — the form and month-tab dropdowns update live.
     To add a whole new dropdown (e.g. Seal Type), add a new column; the
     form picks it up on the next load. The tab is protected — edit as the

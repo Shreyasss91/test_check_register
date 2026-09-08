@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.11.0', // bump on every deploy; shown in the form footer
+  version: 'v1.12.0', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -38,7 +38,7 @@ var CONFIG = {
   configFirstCol: 36,
 
   meterStatusHeader: 'Meter Status', // the Configuration column backing col U
-  defaultMeterStatuses: ['OK', 'Defective', 'Seal broken', 'Meter stopped', 'Burnt', 'Not accessible'],
+  defaultMeterStatuses: ['OK', 'MNR', 'Meter burnt', 'Link burnt', 'No display', 'Not accessible', 'Others'],
 
   masterHeaders: [
     'RR Number', 'Account ID', 'Tariff', 'NAME', 'SANC_KW', 'SANC_HP',

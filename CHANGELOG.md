@@ -9,6 +9,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **New default Meter Status list** (`apps-script/Code.gs`, docs):
+  fresh workbooks seed `Configuration` column A — and the built-in
+  fallback when the tab is missing — with **OK / MNR / Meter burnt /
+  Link burnt / No display / Not accessible / Others** (was OK /
+  Defective / Seal broken / Meter stopped / Burnt / Not accessible).
+  First value = the form default, so **OK** stays the default. Existing
+  workbooks are deliberately NOT auto-migrated: `setupWorkbook` rebuilds
+  the Configuration tab from scratch (custom lists in other columns
+  would be lost), so the deployment guide says to edit column A directly
+  instead. Old rows keep their stored status text — the month-tab
+  status dropdown warns but never blocks, so legacy values stay visible.
+  Version bumped to v1.12.0.
+
+### Changed
+
 - **No login e-mail no longer hard-blocks the form**
   (`apps-script/Code.gs`, `apps-script/Index.html`, docs): a browser
   session that is not signed into a Google account used to be refused
