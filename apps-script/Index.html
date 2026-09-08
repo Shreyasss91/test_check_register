@@ -23,8 +23,6 @@
               border-radius:6px; background:#fff; }
     input:focus { outline:2px solid var(--blue); border-color:transparent; }
     .row { display:flex; gap:10px; } .row > div { flex:1; }
-    .stamp { padding:10px; font-size:15px; font-weight:500; background:#f1f3f4;
-             border:1px solid #dadce0; border-radius:6px; color:#202124; }
     label small.hint { font-weight:400; color:#9aa0a6; font-size:11px; }
     .grid6 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
     details { margin-top:10px; border-top:1px dashed #dadce0; padding-top:8px; }
@@ -66,7 +64,6 @@
 
 <script>
   var QKEY = 'mrq_v1', CONFIG_LISTS = {}, IS_GUEST = false, NO_EMAIL = false, submitting = false;
-  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   /* ---------- boot ---------- */
   window.onload = function () {
@@ -136,12 +133,6 @@
       guestCard +
       '<div class="card">' +
         '<div class="row">' +
-          '<div><label>Date <small class="hint">(auto)</small></label>' +
-            '<div class="stamp" id="date"></div></div>' +
-          '<div><label>Time <small class="hint">(auto)</small></label>' +
-            '<div class="stamp" id="time"></div></div>' +
-        '</div>' +
-        '<div class="row">' +
           '<div><label>RR Number</label>' +
            '<input id="rr" autocomplete="off" placeholder="type RR number"></div>' +
           '<div><label>Account ID</label>' +
@@ -180,7 +171,6 @@
       '<textarea id="remarks" rows="2" maxlength="200"></textarea></div>' +
       '<div class="ver" id="ver"></div>';
 
-    stampNow();
     document.getElementById('rr').addEventListener('input', onRR);
     document.getElementById('acct').addEventListener('input', onRR);
     if (r.version) document.getElementById('ver').textContent = 'Meter Register ' + r.version;
@@ -340,7 +330,7 @@
 
   function collect() {
     var g = function (id) { return document.getElementById(id).value.trim(); };
-    // Date/Time are stamped from the device clock at submit — no user input.
+    // Date/Time are captured silently from the device clock at submit — no UI for these.
     var n = new Date();
     var p = {
       date: localISO(n),
@@ -383,7 +373,7 @@
   function err(msg) { toast(msg, false); return null; }
   function btn(d) { document.getElementById('btn').disabled = d; }
 
-  // clears every input for the next inspection; Date/Time restamped to now
+  // clears every input for the next inspection; Date/Time are captured fresh at the next Submit
   function resetReadings() {
     ['ckwh','prk','pf','remarks','rr','acct','mdConstant','mdMake','mdSerial','mdPhases','mdDtc','mdFeeder','mdLocation']
       .forEach(function (id) { document.getElementById(id).value = ''; });
@@ -400,7 +390,6 @@
       document.getElementById('bk' + i).value = '';
       document.getElementById('bw' + i).value = '';
     }
-    stampNow();
     document.getElementById('meterInfo').style.display = 'none';
   }
 
@@ -449,7 +438,6 @@
 
   function tick() {
     refreshNetBadge(); syncQueue();
-    if (document.getElementById('date')) stampNow(); // keep the read-only stamp live
   }
 
   function renderQ() {
@@ -471,20 +459,6 @@
   function updateNet() {}
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function localISO(d) { return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
-  // read-only stamp at the top of the form: what the device clock will record at Submit
-  function stampNow() {
-    var n = new Date();
-    var d = document.getElementById('date');
-    var t = document.getElementById('time');
-    if (d) d.textContent = pad(n.getDate()) + ' ' + MONTHS[n.getMonth()] + ' ' + n.getFullYear();
-    if (t) t.textContent = fmtTime(n);
-  }
-  // 12-hour with am/pm (D13: field-staff preference); stored value stays 24-h HH:mm
-  function fmtTime(d) {
-    var h = d.getHours(), ap = h < 12 ? ' am' : ' pm';
-    h = h % 12; if (h === 0) h = 12;
-    return h + ':' + pad(d.getMinutes()) + ap;
-  }
 
   var tTimer;
   function toast(msg, isOk) {

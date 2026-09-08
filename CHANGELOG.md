@@ -9,6 +9,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Date/Time no longer shown in the form** (`apps-script/Index.html`,
+  docs): the read-only Date/Time stamps added in v1.13.2 are removed from
+  the form entirely — inspectors see no date or time UI at all. At Submit
+  the current date and time are captured silently from the device clock
+  and sent to the server; offline-queued entries keep the stamp captured
+  at the spot as before. Docs synced (requirements §5 table + §7, README
+  field tips); version bumped to v1.13.3.
+
 - **Android APK now targets the deployed Web App directly** (`android/app/build.gradle`, `.github/workflows/build-android.yml`): configured the supplied Apps Script `/exec` deployment URL as the release `WEB_APP_URL` and simplified the manual GitHub Actions build so the workflow builds the configured APK without requiring the URL as an input.
 
 ### Added
