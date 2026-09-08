@@ -2,11 +2,6 @@ name: Build Meter Inspection APK
 
 on:
   workflow_dispatch:
-    inputs:
-      web_app_url:
-        description: 'Deployed Google Apps Script Web App URL ending in /exec'
-        required: true
-        type: string
 
 jobs:
   build-apk:
@@ -31,7 +26,7 @@ jobs:
           gradle-version: '9.6'
 
       - name: Build release APK
-        run: gradle :app:assembleRelease -PMETER_WEB_APP_URL='${{ inputs.web_app_url }}'
+        run: gradle :app:assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
