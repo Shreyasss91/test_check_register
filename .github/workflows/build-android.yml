@@ -34,10 +34,27 @@ jobs:
       - name: Build release APK
         run: gradle :app:assembleRelease
 
+      - name: Verify generated APK
+        run: |
+          echo "Generated APK files:"
+          find app/build/outputs/apk -type f -name '*.apk' -print
+          APK_COUNT=$(find app/build/outputs/apk -type f -name '*.apk' | wc -l)
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "ERROR: No APK was generated."
+            exit 1
+          fi
+          if [ "$APK_COUNT" -gt 1 ]; then
+            echo "ERROR: Multiple APKs were generated; refusing to guess which one to upload."
+            exit 1
+          fi
+          APK_PATH=$(find app/build/outputs/apk -type f -name '*.apk' -print -quit)
+          echo "APK_PATH=$APK_PATH"
+          ls -lh "$APK_PATH"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: meter-inspection-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: ${{ github.workspace }}/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
