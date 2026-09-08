@@ -74,8 +74,8 @@ No per-person tabs anymore.
 
 | Field | Source | Notes |
 |---|---|---|
-| Date | pre-filled | device date, editable; dd-mm-yyyy |
-| Time | pre-filled | device time at spot, editable; 12-h `hh:mm am/pm` |
+| Date | **auto** | device date at Submit — shown as a read-only stamp, not editable; stored dd-mm-yyyy |
+| Time | **auto** | device time at Submit — shown as a read-only stamp, not editable; stored `hh:mm` |
 | Entered By | **auto** | Team member: resolved from Google login email via `Team` tab. Guest (login not in Team): **not blocked** — form asks for a name, row records `Name{email}`; e-mail + name logged in `Guests`. No login e-mail at all: **not blocked** — row records `Name (no email)` |
 | RR Number / Account ID | dropdown | enter either one; fed by `Master`; resolved meter may be recorded by multiple people |
 | Reading (CKWh) | manual | main cumulative kWh |
@@ -146,8 +146,11 @@ casing/spacing/punctuation are checked identically to the server.
   Google account) is also not blocked: it is a **no-email guest** — the
   name field is required and rows are recorded as `Name (no email)`;
   there is no e-mail to log in `Guests`.
-- Form behavior: Date/Time pre-filled with device now (editable); as the
-  inspector types an RR Number (debounced ~300 ms) the server resolves it
+- Form behavior: Date/Time are shown at the top of the form as read-only
+  stamps of the device clock (refreshed on load and after each Submit) and
+  re-stamped from the device clock at Submit — those two fields accept no
+  user input. As the inspector types an RR Number (debounced ~300 ms) the
+  server resolves it
   via the `lookupMeter` RPC against the cached `METER_INDEX` and the
   meter-info card loads (Make/Serial/Constant/Phases/Tariff/SANC/DOS/
   STATUS); resolved meters are memoized per session. If the lookup call

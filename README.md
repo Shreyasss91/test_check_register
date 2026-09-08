@@ -149,7 +149,8 @@ by > ±1 kWh · wrong-month date · duplicates · missing PF. All RR matching
 ## Field tips (inspectors)
 
 - Open the pinned form URL once → browser menu → *Add to Home screen*.
-- Date/Time are pre-filled at the spot and stay editable.
+- Date/Time at the top are read-only — the form stamps the device date and
+  time automatically when you hit Submit.
 - Type an RR Number (or Account ID) — the meter's details card loads from
   the server in a moment (Master is large; the form doesn't download it).
 - **Meter details (optional)** under the RR field opens Constant/Make/

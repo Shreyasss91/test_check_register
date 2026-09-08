@@ -17,6 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Date/Time are now read-only, stamped at Submit** (`apps-script/Index.html`,
+  docs): the editable Date and Time inputs are replaced with read-only
+  stamps of the device clock (refreshed on load and after each Submit).
+  Submitting stamps the date and time from the device clock at that moment
+  and sends it to the server — inspectors can no longer edit either field.
+  Offline-queued entries keep the stamp captured at the spot as before.
+  Docs synced (README field tips, requirements §5 table + §7); version
+  bumped to v1.13.2.
+
 - **B1 kW demand input layout** (`apps-script/Index.html`): B1 kW input
   placed immediately below Reading Pr kW (separate required field);
   collapsible "Block demand – B2…B6 kW (optional)" follows. B1 remains
