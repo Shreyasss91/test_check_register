@@ -1,0 +1,42 @@
+name: Build Meter Inspection APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_app_url:
+        description: 'Deployed Google Apps Script Web App URL ending in /exec'
+        required: true
+        type: string
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 9.6
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.6'
+
+      - name: Build release APK
+        run: gradle :app:assembleRelease -PMETER_WEB_APP_URL='${{ inputs.web_app_url }}'
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: meter-inspection-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
