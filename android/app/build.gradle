@@ -18,6 +18,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            // CI/test distribution: sign the release APK with Android's debug key
+            // so the generated APK can be installed directly on a device.
+            signingConfig signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
