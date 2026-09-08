@@ -76,7 +76,7 @@ No per-person tabs anymore.
 |---|---|---|
 | Date | pre-filled | device date, editable; dd-mm-yyyy |
 | Time | pre-filled | device time at spot, editable; 12-h `hh:mm am/pm` |
-| Entered By | **auto** | Team member: resolved from Google login email via `Team` tab. Guest (login not in Team): **not blocked** — form asks for a name, row records `Name{email}`; e-mail + name logged in `Guests` |
+| Entered By | **auto** | Team member: resolved from Google login email via `Team` tab. Guest (login not in Team): **not blocked** — form asks for a name, row records `Name{email}`; e-mail + name logged in `Guests`. No login e-mail at all: **not blocked** — row records `Name (no email)` |
 | RR Number / Account ID | dropdown | enter either one; fed by `Master`; resolved meter may be recorded by multiple people |
 | Reading (CKWh) | manual | main cumulative kWh |
 | B1–B6 kWh | optional | per-block readings where applicable |
@@ -141,8 +141,10 @@ casing/spacing/punctuation are checked identically to the server.
   Not in `Team` → **guest flow** (no hard block): a banner explains they
   are not in Team yet, a name field is required, and their submissions
   are recorded as `Name{email}` with the e-mail captured in `Guests`.
-  Only a completely anonymous session (no login e-mail at all) is
-  refused, since it cannot be traced to anyone.
+  A session with **no login e-mail at all** (browser not signed into a
+  Google account) is also not blocked: it is a **no-email guest** — the
+  name field is required and rows are recorded as `Name (no email)`;
+  there is no e-mail to log in `Guests`.
 - Form behavior: Date/Time pre-filled with device now (editable); as the
   inspector types an RR Number (debounced ~300 ms) the server resolves it
   via the `lookupMeter` RPC against the cached `METER_INDEX` and the
@@ -204,7 +206,7 @@ format keeps later pivots easy (Entered By, RR Number, month). One live
 | D20 | Month tab auto-created by first submission of the month (same template as menu button) | nobody blocked if consolidator forgot |
 | D21 | All dropdown lists live in a `Configuration` tab (one column per list); the first value in a column is the form default | edit/add statuses or whole new dropdowns without touching code |
 | D22 | Extra config lists are stored in dynamic month-tab columns (36+ / AJ..), appended in lockstep on every month tab; append-only (a removed list keeps its data column) | zero-code extensibility while keeping the fixed core layout and the width-aligned Consolidated QUERY intact |
-| D23 | Unknown logins are guests, not rejections: name captured, rows recorded as `Name{email}`, e-mail logged in `Guests` | nobody is blocked at the spot; every entry stays traceable to a login |
+| D23 | Unknown logins are guests, not rejections: name captured, rows recorded as `Name{email}`, e-mail logged in `Guests`. A session with no login e-mail at all is also a guest: rows recorded as `Name (no email)` (nothing to log in `Guests`) | nobody is blocked at the spot; entries stay traceable to a login or, failing that, to the typed name |
 | D24 | Adding a guest to Team later: menu *Sync guest names from Team* rewrites their `Name{email}` rows to the exact Team name (and clears them from `Guests`) | guest history merges cleanly into the person's Team identity |
 | D25 | RR/Account-ID normalization strips everything except letters and digits (case-insensitive) — implemented identically server-side (`normalizeKey_`), client-side (`normKey`) and in the sheet key formulas (`_Keys` + month-tab key column) | typed, handwritten or legacy RR Numbers with stray punctuation/dashes/spacing never false-flag or double-count a meter |
 | D26 | Master carries the utility-registry reference block (Tariff, SANC_KW, SANC_HP, CONT_DEM, DOS, STATUS + renamed MR ID / MR DAY / METER CONSTANT / METER_SERIAL_NO) in the export column order; shown in the form's meter card; migrating an existing populated Master re-maps columns in place instead of wiping | inspectors see sanction/demand/status context at the spot; existing workbooks keep their meter data on upgrade |

@@ -53,6 +53,11 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
      by the guest flow (v1.7.0) — the web app starts accepting them as
      `Name{email}` with a `Guests` log as soon as this version is
      deployed.
+     - **v1.11.0 — no Google login is no longer a hard block.** A
+       browser session without a login e-mail opens the form in
+       *no-email guest* mode: name required, rows recorded as
+       `Name (no email)`, nothing logged in `Guests`. The old
+       "No login e-mail available" refusal is gone.
      - **v1.10.0 — Master scales to ~30,000 meters and the form never
        downloads it.** Meter resolution becomes a per-keystroke
        `lookupMeter` RPC (debounced 300 ms, memoized per session)
@@ -143,7 +148,7 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
     | Weekly digest not arriving | Trigger not installed (menu *Meter Register > Install weekly digest trigger*), or it lands in Gmail spam — check that the Apps Script trigger exists under the clock icon in the editor |
     | `setupWorkbook` not in function dropdown | Stale editor after large paste — close the Apps Script tab and reopen `Extensions → Apps Script`; keep `Code.gs` as active tab |
 | "Not authorized" for a real inspector | Their Gmail missing/mistyped in `Team` tab column A (check case/spaces) |
-| Form stuck on "Loading…" | Deployment access not set to *Anyone with a Google account*, or user not logged into any Google account |
+| Form stuck on "Loading…" | Deployment access not set to *Anyone with a Google account*, or a server error — check Executions. Not being logged into Google is **not** an error since v1.11.0: the form opens in no-email guest mode (`Name (no email)`) |
 | Changes don't appear | Forgot step 25 — old version still deployed |
 | Script file renamed / Index missing | HTML file must be named exactly `Index` |
 | Inspector submits but no row | Check the month tab isn't locked (closed); check hard-block message shown by the form (unknown RR / PF range) |

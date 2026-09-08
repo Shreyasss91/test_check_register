@@ -8,6 +8,9 @@
  * Unknown logins are NOT blocked: they run as guests (name typed in the
  * form, recorded as "Name{email}", e-mail captured in the Guests tab) and
  * are renamed by "Sync guest names from Team" once added to Team.
+ * Sessions with NO login e-mail at all are also not blocked: they are
+ * "no-email guests" — name required, rows recorded as "Name (no email)",
+ * not logged in Guests (there is no e-mail to log).
  *
  * SETUP (one time, consolidator)
  *   1. Create a new Google Sheet. Extensions > Apps Script.
@@ -22,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.10.0', // bump on every deploy; shown in the form footer
+  version: 'v1.11.0', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -896,10 +899,12 @@ function doGet() {
 /* identity: Team member -> { email, name, guest:false }. Unknown login ->
    { email, name:null, guest:true } - NOT blocked; the form asks for a
    name and rows go out as "Name{email}" (see Guests tab). No login e-mail
-   at all (anonymous) is still refused - that cannot be traced to anyone. */
+   at all (anonymous) is ALSO not blocked: { email:'', name:null,
+   guest:true, noEmail:true } - the form asks for a name and rows go out
+   as "Name (no email)" (nothing to log in Guests). */
 function currentUser_(ss) {
   var email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-  if (!email) return null;
+  if (!email) return { email: '', name: null, guest: true, noEmail: true };
   var vals = ss.getSheetByName('Team').getRange(2, 1, CONFIG.maxTeamRows, 2).getDisplayValues();
   for (var i = 0; i < vals.length; i++) {
     if (vals[i][0].trim().toLowerCase() === email) {
@@ -908,6 +913,13 @@ function currentUser_(ss) {
     }
   }
   return { email: email, name: null, guest: true };
+}
+
+/* "Entered By" label for a no-email guest: "Name (no email)". Collides
+   with a real person only if someone is literally named "no email" -
+   the reserved-name check in submitEntry rejects that typo. */
+function noEmailLabel_(name) {
+  return String(name || '').trim() + ' (no email)';
 }
 
 /* ============ meter index (30k-row Master performance) ============
@@ -1055,7 +1067,7 @@ function lookupMeter(query) {
   try {
     var ss = SpreadsheetApp.getActive();
     var user = currentUser_(ss);
-    if (!user) return { ok: false };
+    if (!user) return { ok: false }; // Team row with an empty Name cell
 
     var q = String(query || '').trim();
     if (!q) return { ok: true, meter: null };
@@ -1079,13 +1091,14 @@ function getBootstrap() {
     var ss = SpreadsheetApp.getActive();
     var user = currentUser_(ss);
     if (!user) {
-      // no login e-mail at all - cannot be traced, refuse
+      // Team lists this e-mail with an empty Name cell - consolidator fix
       return { ok: false, reason: 'not_authorized', email: '' };
     }
 
     // guests: offer their previously-typed name (if any) so the form can
-    // pre-fill it; membership only changes the banner, not the flow
-    if (user.guest) {
+    // pre-fill it; membership only changes the banner, not the flow.
+    // A no-email session cannot have a Guests row, so skip the lookup.
+    if (user.guest && !user.noEmail) {
       var gv = ensureGuests_(ss).getRange(2, 1, CONFIG.maxGuestRows, 2).getDisplayValues();
       for (var g = 0; g < gv.length; g++) {
         if (String(gv[g][0] || '').trim().toLowerCase() === user.email) {
@@ -1117,21 +1130,27 @@ function submitEntry(p) {
   try {
     var ss = SpreadsheetApp.getActive();
     var user = currentUser_(ss);
-    if (!user) return { ok: false, error: 'No login e-mail available - open the form while logged into your Google account.' };
+    if (!user) return { ok: false, error: 'Your Team e-mail has no Name in the Team tab - ask the consolidator to fill it.' };
 
     var chk = validatePayload_(ss, p);
     if (chk.error) return { ok: false, error: chk.error };
     var v = chk.values;
 
     // resolve the "Entered By" value: Team member -> plain name; guest ->
-    // "Name{email}" recorded on the Guests tab (typed name required)
+    // "Name{email}" recorded on the Guests tab; no-email guest ->
+    // "Name (no email)" (typed name required, nothing to log in Guests)
     var who;
     if (user.guest) {
       var gname = String(p.guestName || '').trim();
       if (!gname) return { ok: false, error: 'Enter your name (you are not in the Team list yet).' };
       if (gname.length > 60) return { ok: false, error: 'Name too long (max 60 chars).' };
       if (/[{}]/.test(gname)) return { ok: false, error: 'Name cannot contain { or }.' };
-      who = recordGuest_(ss, user.email, gname);
+      if (user.noEmail) {
+        if (normalizeKey_(gname) === 'noemail') return { ok: false, error: 'That name is reserved - enter your real name.' };
+        who = noEmailLabel_(gname);
+      } else {
+        who = recordGuest_(ss, user.email, gname);
+      }
     } else {
       who = user.name;
     }

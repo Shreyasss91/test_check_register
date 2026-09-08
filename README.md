@@ -81,6 +81,12 @@ Someone opens the form with a Google login that isn't in `Team`:
 The digest groups guests by e-mail (not name), so name typos between
 visits still count as one person.
 
+**No Google login at all?** Not a block either: the form opens in
+*no-email guest* mode — the inspector types their name and rows are
+recorded as `Name (no email)`. There is no e-mail to log in `Guests`,
+so these entries cannot be auto-merged later; for traceable entries ask
+the inspector to log into Google before opening the form.
+
 ## Setup (one time, consolidator)
 
 1. Create a new [Google Sheet](https://sheets.new) → `Extensions > Apps Script`.

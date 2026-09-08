@@ -62,7 +62,7 @@
 <button class="submit" id="btn" style="display:none" onclick="onSubmit()">Submit inspection</button>
 
 <script>
-  var QKEY = 'mrq_v1', CONFIG_LISTS = {}, IS_GUEST = false, submitting = false;
+  var QKEY = 'mrq_v1', CONFIG_LISTS = {}, IS_GUEST = false, NO_EMAIL = false, submitting = false;
 
   /* ---------- boot ---------- */
   window.onload = function () {
@@ -82,11 +82,14 @@
     if (!r || !r.ok) {
       document.getElementById('loading').textContent =
         r && r.reason === 'not_authorized'
-          ? 'No login e-mail available. Open this form while logged into your Google account.'
+          ? 'Your e-mail is in the Team tab but the Name column is empty. Ask the consolidator to fill it in.'
           : ('Error: ' + ((r && r.reason) || 'unknown'));
       return;
     }
     IS_GUEST = !!r.user.guest;
+    NO_EMAIL = !!r.user.noEmail;
+    document.getElementById('who').textContent =
+      IS_GUEST ? (r.user.name || 'guest') + (NO_EMAIL ? ' (no email)' : ' (not in Team)') : r.user.name;
     document.getElementById('who').textContent =
       IS_GUEST ? (r.user.name || 'guest') + ' (not in Team)' : r.user.name;
     CONFIG_LISTS = r.configLists || {};
@@ -111,9 +114,15 @@
     var guestCard = '';
     if (IS_GUEST) {
       var gb = document.getElementById('guestBar');
-      gb.innerHTML = 'ℹ You are <b>not in the Team list</b> yet (' + esc(r.user.email) + '). ' +
-        'You can still submit — entries are recorded as <b>Your name{' + esc(r.user.email) + '}</b> ' +
-        'until the admin adds you. Ask them to add your e-mail to the Team tab.';
+      if (NO_EMAIL) {
+        gb.innerHTML = 'ℹ You are <b>not logged into a Google account</b> in this browser, so your e-mail is unavailable. ' +
+          'No problem — type your name below and submit; entries are recorded as <b>Your name (no email)</b>. ' +
+          'Logging into Google and reloading records future entries against your e-mail instead.';
+      } else {
+        gb.innerHTML = 'ℹ You are <b>not in the Team list</b> yet (' + esc(r.user.email) + '). ' +
+          'You can still submit — entries are recorded as <b>Your name{' + esc(r.user.email) + '}</b> ' +
+          'until the admin adds you. Ask them to add your e-mail to the Team tab.';
+      }
       gb.style.display = 'block';
       guestCard = '<div class="card">' +
         '<label>Your name <small class="req">*</small> (required while not in Team)</label>' +
@@ -358,6 +367,7 @@
       if (gEl) p.guestName = gEl.value.trim();
       if (!p.guestName) return err('Enter your name — you are not in the Team list yet');
       if (/[{}]/.test(p.guestName)) return err('Name cannot contain { or }');
+      if (NO_EMAIL && normKey(p.guestName) === 'noemail') return err('That name is reserved — enter your real name');
     }
     return p;
   }
