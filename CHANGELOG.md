@@ -9,6 +9,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **B1 kW demand input layout** (`apps-script/Index.html`): B1 kW input
+  placed immediately below Reading Pr kW (separate required field);
+  collapsible "Block demand – B2…B6 kW (optional)" follows. B1 remains
+  compulsory (client `required` attribute + validation; server
+  re-check). Version bumped to v1.13.1.
+
+### Changed
+
 - **B1 kW is now a required entry** (`apps-script/Code.gs`,
   `apps-script/Index.html`, docs): block demand B1 joins CKWh and
   Pr kW as a hard-required field — submit is rejected with "B1 kW
