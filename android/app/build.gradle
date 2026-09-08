@@ -1,0 +1,35 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.shreyasss.meterinspection'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.shreyasss.meterinspection'
+        minSdk 23
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    defaultConfig {
+        buildConfigField 'String', 'WEB_APP_URL', '"' + (project.findProperty('METER_WEB_APP_URL') ?: 'https://script.google.com/macros/s/REPLACE_WITH_DEPLOYMENT_ID/exec') + '"'
+    }
+}
+
+dependencies {
+    implementation 'androidx.browser:browser:1.10.0'
+}
