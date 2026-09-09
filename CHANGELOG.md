@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Enter advances through the form** (`apps-script/Index.html`):
+  pressing Enter (or the keyboard's Next/Go action) jumps to the next
+  field in reading order — RR → Account ID → CKWh → Pr kW → B1 kW →
+  PF → Meter status — so inspectors can walk the meter top-to-bottom
+  without touching the screen. Enter on Meter status submits directly
+  (client validation still runs; server re-checks). Modifier keys
+  (Shift/Ctrl/Alt) keep default browser behavior, and the optional
+  details/remarks sections stay off the main path. Version bumped to
+  v1.13.7.
+
 ### Fixed
 
 - **`DOS: ########` can no longer reach the form**

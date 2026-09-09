@@ -177,6 +177,7 @@
 
     document.getElementById('rr').addEventListener('input', onRR);
     document.getElementById('acct').addEventListener('input', onRR);
+    wireEnterAdvance();
     if (r.version) document.getElementById('ver').textContent = 'Meter Register ' + r.version;
 
     var sel = document.getElementById('status');
@@ -203,6 +204,38 @@
     document.getElementById('loading').textContent =
       'Could not reach server' + (navigator.onLine ? '' : ' (offline)') +
       '. Reconnect and reload.';
+  }
+
+  /* ---------- faster entry flow ---------- */
+
+  /* Enter (and the keyboard's Next/Go action) jumps to the next field in
+     reading order, so an inspector can walk the meter top-to-bottom
+     without reaching for the mouse. From the last required field (Meter
+     status) Enter submits; the optional details/remarks sections are
+     skipped on the main path — Enter from RR goes straight to CKWh. */
+  var ENTRY_FLOW = [
+    'rr', 'acct', 'ckwh', 'prk', 'bw1', 'pf', 'status'
+  ];
+
+  function wireEnterAdvance() {
+    for (var i = 0; i < ENTRY_FLOW.length; i++) {
+      (function (id, idx) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key !== 'Enter' || ev.shiftKey || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+          ev.preventDefault(); // stop form-gesture side effects (e.g. iOS Go blurring away)
+          // 'change' commits select/number-spinner state before moving on
+          el.blur();
+          if (idx + 1 >= ENTRY_FLOW.length) {
+            onSubmit(); // last field in the flow = submit
+          } else {
+            var nx = document.getElementById(ENTRY_FLOW[idx + 1]);
+            if (nx) { nx.focus(); try { nx.select && nx.select(); } catch (e) {} }
+          }
+        });
+      })(ENTRY_FLOW[i], i);
+    }
   }
 
   function bInputs(pre, n) {
