@@ -9,6 +9,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **`DOS: ########` can no longer reach the form**
+  (`apps-script/Code.gs`, `docs/deployment.md`): DOS is now guaranteed a
+  readable date in the meter info card — a real Date cell always renders
+  as `yyyy-MM-dd` regardless of what generic format sniffing sees, a
+  date-range serial (1..60000) under a broken `#` display converts the
+  same way, and a literal `########` text value (no recoverable date)
+  is blanked so the card shows `—` and the health check reports the
+  field as blank instead of echoing garbage. A wide non-date number
+  under `#` shows as exact digits. Troubleshooting entry added covering
+  both the stale-deployment case (check the footer version) and the
+  literal-text case (replace with the real date). Version bumped to
+  v1.13.6.
+
+### Fixed
+
 - **Display cleanup applied everywhere Master is read**
   (`apps-script/Code.gs`): the v1.13.4 exact-digits / readable-date fix now
   covers every consumer. Master's Account ID column is formatted as text

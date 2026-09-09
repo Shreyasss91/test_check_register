@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.13.5', // bump on every deploy; shown in the form footer
+  version: 'v1.13.6', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -1111,8 +1111,11 @@ function cleanDisplay_(disp, raw, fmt, tz) {
       var num = parseFloat(s);
       if (!isNaN(num) && isFinite(num) && num % 1 === 0) s = String(num);
     }
-    // a full '########' run has no digits to salvage — returned as-is
   }
+  // a value that is literally a hash run (######## pasted as text) carries
+  // no recoverable data — blank it so the form shows '—' and the health
+  // check reports the field as blank instead of echoing the garbage
+  if (/^#+$/.test(s)) return '';
   return s;
 }
 
@@ -1136,6 +1139,17 @@ function masterRowDisplay_(ss, row) {
   var fmt = rng.getNumberFormats()[0];
   var tz = ss.getSpreadsheetTimeZone();
   for (var c = 0; c < v.length; c++) v[c] = cleanDisplay_(v[c], raw[c], fmt[c], tz);
+  // DOS (col H, index 7) is a date field — guarantee a readable date even
+  // when generic format sniffing can't (narrow-column ####, exotic custom
+  // formats). Real dates render as yyyy-MM-dd; serials 1..60000 are dates
+  // (1899..2063) and get the same treatment when the display broke.
+  var dRaw = raw[7];
+  if (Object.prototype.toString.call(dRaw) === '[object Date]') {
+    v[7] = Utilities.formatDate(dRaw, tz, 'yyyy-MM-dd');
+  } else if (typeof dRaw === 'number' && isFinite(dRaw) &&
+             dRaw >= 1 && dRaw <= 60000 && String(v[7]).indexOf('#') !== -1) {
+    v[7] = dateFromSerial_(dRaw);
+  }
   return v;
 }
 
