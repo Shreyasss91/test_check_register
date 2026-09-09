@@ -5,44 +5,63 @@
   <meta charset="utf-8">
   <title>Meter Inspection Register</title>
   <style>
-    :root { --blue:#1a73e8; --bg:#f1f3f4; --card:#fff; --err:#d93025; --ok:#188038; }
+    :root { --blue:#1a73e8; --bg:#f1f3f4; --card:#fff; --err:#d93025; --ok:#188038;
+            --text:#202124; --muted:#5f6368; --faint:#9aa0a6; --line:#dadce0;
+            --accent:#e8f0fe; --accentText:#1a56c5; --warnBg:#fef7e0; --warnText:#7a5b00; --warnLine:#f0e0a0;
+            --toastOkBg:#e6f4ea; --toastErrBg:#fce8e6; }
+    body.dark { --bg:#0f1216; --card:#1b1f26; --text:#f1f3f4; --muted:#b3bac2; --faint:#8a9199;
+            --line:#3a4048; --blue:#8ab4f8; --err:#f28b82; --ok:#81c995;
+            --accent:#25303e; --accentText:#c8dcff; --warnBg:#3a3220; --warnText:#f8d47a; --warnLine:#5a4a1e;
+            --toastOkBg:#243a2c; --toastErrBg:#4a2521; }
     * { box-sizing:border-box; font-family:Roboto,Arial,sans-serif; }
-    body { margin:0; background:var(--bg); color:#202124; padding-bottom:86px; }
-    header { background:var(--blue); color:#fff; padding:12px 16px; position:sticky; top:0; z-index:5;
+    body { margin:0; background:var(--bg); color:var(--text); padding-bottom:86px; }
+    header { background:var(--blue); color:var(--card); padding:12px 16px; position:sticky; top:0; z-index:5;
              display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     header h1 { font-size:16px; margin:0; flex:1; font-weight:500; }
     .chip { background:rgba(255,255,255,.2); border-radius:14px; padding:3px 10px; font-size:12px; }
     #net { border-radius:14px; padding:3px 10px; font-size:12px; cursor:default; }
     .on  { background:#c6efce; color:#145a32; }
     .off { background:#ffd7cf; color:#8b1e11; }
+    #theme { cursor:pointer; user-select:none; }
     main { padding:12px; max-width:520px; margin:0 auto; }
     .card { background:var(--card); border-radius:10px; padding:14px; margin-bottom:12px;
             box-shadow:0 1px 2px rgba(0,0,0,.12); }
-    label { display:block; font-size:12px; color:#5f6368; margin:10px 0 4px; font-weight:500; }
-    input, textarea, select { width:100%; padding:10px; font-size:15px; border:1px solid #dadce0;
-              border-radius:6px; background:#fff; }
+    label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:500; }
+    input, textarea, select { width:100%; padding:10px; font-size:15px; border:1px solid var(--line);
+              border-radius:6px; background:var(--card); color:var(--text); }
+    select { -webkit-appearance:none; appearance:none;
+             background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+             background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%; background-size:5px 5px,5px 5px;
+             background-repeat:no-repeat; padding-right:34px; }
+    select option { background:var(--card); color:var(--text); }
     input:focus { outline:2px solid var(--blue); border-color:transparent; }
     .row { display:flex; gap:10px; } .row > div { flex:1; }
-    label small.hint { font-weight:400; color:#9aa0a6; font-size:11px; }
+    label small.hint { font-weight:400; color:var(--faint); font-size:11px; }
     .grid6 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-    details { margin-top:10px; border-top:1px dashed #dadce0; padding-top:8px; }
+    details { margin-top:10px; border-top:1px dashed var(--line); padding-top:8px; }
     summary { cursor:pointer; font-size:13px; color:var(--blue); font-weight:500; }
-    #meterInfo { display:none; margin-top:8px; font-size:13px; background:#e8f0fe;
+    #meterInfo { display:none; margin-top:8px; font-size:13px; background:var(--accent); color:var(--accentText);
                  border-radius:6px; padding:8px 10px; line-height:1.5; }
     button.submit { position:fixed; bottom:0; left:0; right:0; width:100%; border:none;
-            background:var(--blue); color:#fff; font-size:17px; padding:17px; cursor:pointer; }
+            background:var(--blue); color:var(--card); font-size:17px; padding:17px; cursor:pointer; }
     button.submit:disabled { opacity:.6; }
     #toast { position:fixed; top:56px; left:50%; transform:translateX(-50%); min-width:260px;
              max-width:92vw; padding:11px 16px; border-radius:8px; display:none; z-index:20;
              font-size:14px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.25); }
-    .t-ok { background:#e6f4ea; color:var(--ok); } .t-err { background:#fce8e6; color:var(--err); }
-    .center { text-align:center; padding:40px 20px; color:#5f6368; }
-    .ver { text-align:center; font-size:11px; color:#9aa0a6; margin:2px 0 8px; }
+    .t-ok { background:var(--toastOkBg); color:var(--ok); } .t-err { background:var(--toastErrBg); color:var(--err); }
+    .center { text-align:center; padding:40px 20px; color:var(--muted); }
+    .ver { text-align:center; font-size:11px; color:var(--faint); margin:2px 0 8px; }
     small.req { color:var(--err); }
-    #guestBar { display:none; background:#fef7e0; color:#7a5b00; font-size:12px;
-                padding:8px 12px; line-height:1.5; border-bottom:1px solid #f0e0a0; }
-    #queueBar { display:none; background:#fef7e0; color:#7a5b00; font-size:13px;
+    #guestBar { display:none; background:var(--warnBg); color:var(--warnText); font-size:12px;
+                padding:8px 12px; line-height:1.5; border-bottom:1px solid var(--warnLine); }
+    #queueBar { display:none; background:var(--warnBg); color:var(--warnText); font-size:13px;
                 padding:8px 16px; text-align:center; cursor:pointer; }
+    #queueBar, #guestBar { border-color:var(--warnLine); }
+    /* native bits that ignore CSS variables: keep them light in dark mode */
+    body.dark #net.on  { background:#1d3325; color:#81c995; }
+    body.dark #net.off { background:#3d221e; color:#f28b82; }
+    body.dark .chip { background:rgba(0,0,0,.3); }
+    body.dark header { color:#0f1216; }
   </style>
 </head>
 <body>
@@ -51,6 +70,7 @@
   <h1>Meter Inspection</h1>
   <span class="chip" id="who">…</span>
   <span id="net" class="chip on">online</span>
+  <span id="theme" class="chip" onclick="toggleTheme()" title="Toggle light / dark">☾</span>
 </header>
 <div id="guestBar"></div>
 <div id="queueBar" onclick="syncQueue(true)">⚠ <span id="qCount">0</span> saved offline — tap to send<span id="failedNote" style="display:none"> · <span id="fCount">0</span> rejected — tap to retry</span></div>
@@ -64,6 +84,34 @@
 
 <script>
   var QKEY = 'mrq_v1', CONFIG_LISTS = {}, IS_GUEST = false, NO_EMAIL = false, submitting = false;
+  var TKEY = 'mr_theme';
+
+  /* ---------- theme (dark mode for outdoor sunlight/shade use) ---------- */
+  function applyTheme(dark) {
+    document.body.classList.toggle('dark', !!dark);
+    var t = document.getElementById('theme');
+    if (t) t.textContent = dark ? '☀' : '☾';
+    var meta = document.querySelector('meta[name="color-scheme"]');
+    if (meta) meta.setAttribute('content', dark ? 'dark' : 'light');
+    else {
+      meta = document.createElement('meta');
+      meta.name = 'color-scheme'; meta.content = dark ? 'dark' : 'light';
+      document.head.appendChild(meta);
+    }
+  }
+  function toggleTheme() {
+    var dark = !document.body.classList.contains('dark');
+    try { localStorage.setItem(TKEY, dark ? 'dark' : 'light'); } catch (e) {}
+    applyTheme(dark);
+  }
+  // restore before first paint of the app body to avoid a light flash
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem(TKEY); } catch (e) {}
+    var dark = saved ? saved === 'dark'
+      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    applyTheme(dark);
+  })();
 
   /* ---------- boot ---------- */
   window.onload = function () {

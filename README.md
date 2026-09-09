@@ -149,6 +149,9 @@ by > ±1 kWh · wrong-month date · duplicates · missing PF. All RR matching
 ## Field tips (inspectors)
 
 - Open the pinned form URL once → browser menu → *Add to Home screen*.
+- Sun in your eyes or working after dark? Tap the ☾/☀ chip in the header
+  to switch the form to dark mode — the choice is remembered on your
+  phone (first-time default follows the phone's own dark setting).
 - Date and time need no entry — the form silently captures them from your
   device when you hit Submit (nothing to fill or edit).
 - Type an RR Number (or Account ID) — the meter's details card loads from

@@ -9,6 +9,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Dark mode for field use** (`apps-script/Index.html`): a ☾/☀ chip in
+  the header toggles a dark, high-contrast theme (near-black canvas,
+  light text, brighter blue accents) — easier on the eyes in shade and
+  indoors after dark. The choice is remembered on the device
+  (localStorage) and re-applied before first paint; a device that has
+  never toggled follows the phone's own light/dark setting. Inputs,
+  dropdowns (custom arrow), info card, toasts, banners, and the submit
+  bar all follow the theme. Version bumped to v1.13.8.
+
+### Added
+
 - **Enter advances through the form** (`apps-script/Index.html`):
   pressing Enter (or the keyboard's Next/Go action) jumps to the next
   field in reading order — RR → Account ID → CKWh → Pr kW → B1 kW →
