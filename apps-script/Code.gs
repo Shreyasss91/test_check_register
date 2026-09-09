@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.13.4', // bump on every deploy; shown in the form footer
+  version: 'v1.13.5', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -528,6 +528,14 @@ function sendWeeklyDigest() {
     var last = Math.min(sh.getLastRow(), CONFIG.prefillRows + 1);
     if (last < 2) return;
     var rows = sh.getRange(2, 1, last - 1, 27).getDisplayValues(); // A..AA
+    // date col A: a ######## display (narrow column) would parse as no
+    // date and drop the row from the week — rebuild it from the raw cell
+    var aDisp = sh.getRange(2, 1, last - 1, 1).getDisplayValues();
+    var aRaw = sh.getRange(2, 1, last - 1, 1).getValues();
+    var aFmt = sh.getRange(2, 1, last - 1, 1).getNumberFormats();
+    for (var a = 0; a < rows.length; a++) {
+      rows[a][0] = cleanDisplay_(aDisp[a][0], aRaw[a][0], aFmt[a][0], tz);
+    }
     var used = 0;
     for (var i = 0; i < rows.length; i++) {
       var d = parseDMY_(rows[i][0]);
@@ -813,8 +821,19 @@ function columnLetter_(n) {
    and stray RR-SAMPLE rows still present. */
 function masterHealthCheck() {
   var ss = SpreadsheetApp.getActive();
-  var vals = ss.getSheetByName('Master')
-    .getRange(2, 1, CONFIG.maxMasterRows, 19).getDisplayValues();
+  var sh = ss.getSheetByName('Master');
+  var disp = sh.getRange(2, 1, CONFIG.maxMasterRows, 19).getDisplayValues();
+  // raw + formats for the same rows: display strings can be broken
+  // (4.26E+09 / ########) — normalize before comparing, or the same meter
+  // compares unequal to itself and shows up as a false duplicate
+  var raw = sh.getRange(2, 1, CONFIG.maxMasterRows, 19).getValues();
+  var fmt = sh.getRange(2, 1, CONFIG.maxMasterRows, 19).getNumberFormats();
+  var tz = ss.getSpreadsheetTimeZone();
+  var clean = disp.map(function (row, i) {
+    return row.map(function (cell, j) {
+      return cleanDisplay_(cell, raw[i][j], fmt[i][j], tz).trim();
+    });
+  });
 
   var rrSeen = {}, accSeen = {}, dupRR = [], dupAcc = [];
   var blankFields = {}, sampleRows = 0, count = 0;
@@ -826,8 +845,8 @@ function masterHealthCheck() {
     'METER CONSTANT', 'METER_SERIAL_NO', 'Meter Make', 'Phases',
     'DTC', 'Feeder', 'Location'];
 
-  for (var i = 0; i < vals.length; i++) {
-    var row = vals[i].map(function (c) { return c.trim(); });
+  for (var i = 0; i < clean.length; i++) {
+    var row = clean[i];
     if (!row[0]) continue; // empty row
     count++;
     if (/^RR-SAMPLE/i.test(row[0])) { sampleRows++; continue; }
@@ -1104,8 +1123,11 @@ function dateFromSerial_(n) {
   return Utilities.formatDate(new Date(ms), 'UTC', 'yyyy-MM-dd');
 }
 
-// full meter details for the info card / drift check: ONE Master row read
-function meterDetailsByRow_(ss, row) {
+// ONE Master row as cleaned display strings (A..S), or null when the row
+// is empty/out of range. The single cleanup point for every human-facing
+// Master read — getDisplayValues() alone renders long numeric Account IDs
+// as 4.26E+09 and narrow-column dates as ########.
+function masterRowDisplay_(ss, row) {
   if (row < 2 || row > CONFIG.maxMasterRows + 1) return null;
   var rng = ss.getSheetByName('Master').getRange(row, 1, 1, 19);
   var v = rng.getDisplayValues()[0];
@@ -1114,6 +1136,13 @@ function meterDetailsByRow_(ss, row) {
   var fmt = rng.getNumberFormats()[0];
   var tz = ss.getSpreadsheetTimeZone();
   for (var c = 0; c < v.length; c++) v[c] = cleanDisplay_(v[c], raw[c], fmt[c], tz);
+  return v;
+}
+
+// full meter details for the info card / drift check: ONE Master row read
+function meterDetailsByRow_(ss, row) {
+  var v = masterRowDisplay_(ss, row);
+  if (!v) return null;
   return {
     rr: String(v[0] || '').trim(), accountId: String(v[1] || '').trim(),
     tariff: String(v[2] || '').trim(), name: String(v[3] || '').trim(),
@@ -1426,7 +1455,8 @@ function computeWarnings_(ss, sh, row, tabName, v, who) {
     var rrN = normalizeKey_(v.rr);
     for (var k = 0; k < dv.length; k++) {
       if (normalizeKey_(dv[k][0]) === rrN && dv[k][1] !== '') {
-        var c = parseFloat(dv[k][1]);
+        // strip thousands separators: '#,##0.00' displays parse as 1 otherwise
+        var c = parseFloat(String(dv[k][1]).replace(/,/g, ''));
         if (!isNaN(c) && (maxC === null || c > maxC)) maxC = c;
       }
     }
@@ -1477,7 +1507,11 @@ function buildMaster_(ss) {
     for (var i = 1; i < vals.length; i++) {
       if (String(vals[i][0] || '').trim()) { hasData = true; break; }
     }
-    if (hasData) return migrateMasterInPlace_(old, vals);
+    if (hasData) {
+      var migrated = migrateMasterInPlace_(old, vals);
+      styleMaster_(old); // idempotent — widens/fixes formats on existing Masters too
+      return migrated;
+    }
   }
 
   var sh = resetSheet_(ss, 'Master');
@@ -1486,9 +1520,19 @@ function buildMaster_(ss) {
     .setValues(CONFIG.masterSampleRows);
   styleHeader_(sh, CONFIG.masterHeaders.length);
   sh.setFrozenRows(1);
-  sh.getRange('A:A').setNumberFormat('@');
+  styleMaster_(sh);
   protectStrict_(sh.protect(), 'Master - consolidator only');
   return false;
+}
+
+// column formats + widths Master needs to stay readable: RR and Account ID
+// as text ('@' — a numeric Account ID like 4260000000 renders as 4.26E+09
+// under General), and the DOS column (H) wide enough that dd-mm-yyyy dates
+// never collapse to ########. Idempotent; safe on every setupWorkbook run.
+function styleMaster_(sh) {
+  sh.getRange('A:B').setNumberFormat('@');
+  sh.setColumnWidth(2, 130); // Account ID — long digits need room
+  sh.setColumnWidth(8, 110); // DOS — full date without ####
 }
 
 /* Remaps a pre-v1.9 14-column Master layout to the 20-column layout:
@@ -1546,7 +1590,7 @@ function migrateMasterInPlace_(sh, vals) {
   if (rows.length) sh.getRange(2, 1, rows.length, HEAD.length).setValues(rows);
   styleHeader_(sh, HEAD.length);
   sh.setFrozenRows(1);
-  sh.getRange('A:A').setNumberFormat('@');
+  styleMaster_(sh);
   return true;
 }
 
@@ -1818,10 +1862,14 @@ function toISO_(displayDate) {
   return d ? Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd') : displayDate;
 }
 
-// parses 'dd-mm-yyyy' as displayed by sheet number format
+// parses 'dd-mm-yyyy' as displayed by sheet number format — also accepts
+// the 'yyyy-MM-dd' that cleanDisplay_ emits for ######## dates
 function parseDMY_(s) {
-  var m = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(String(s || '').trim());
-  return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : null;
+  s = String(s || '').trim();
+  var m = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(s);
+  if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
 }
 
 function round2_(n) { return Math.round(n * 100) / 100; }

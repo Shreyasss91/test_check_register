@@ -9,6 +9,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Display cleanup applied everywhere Master is read**
+  (`apps-script/Code.gs`): the v1.13.4 exact-digits / readable-date fix now
+  covers every consumer. Master's Account ID column is formatted as text
+  and the DOS column widened (new `styleMaster_`, applied to fresh builds,
+  in-place migrations, and existing current-layout Masters on the next
+  `setupWorkbook`) so the sheet itself stops rendering 4.26E+09 and
+  ########; the Master health check normalizes broken display strings
+  before comparing (a numeric Account ID no longer reads as a duplicate of
+  itself); the weekly digest rebuilds ######## date cells from the raw
+  value so week-old rows aren't dropped; `meterDetailsByRow_` was factored
+  into a shared `masterRowDisplay_` row reader; and the history-max
+  warning strips thousands separators before parsing ("1,234.50" no
+  longer reads as 1). `parseDMY_` also accepts the yyyy-MM-dd output of
+  the cleanup. Version bumped to v1.13.5.
+
+### Fixed
+
 - **Meter info card: field order, account digits, DOS date**
   (`apps-script/Code.gs`, `apps-script/Index.html`): the card now presents
   one line per group — Name · Acct / Tariff · SANC · Cont.Demand / MR ID ·
