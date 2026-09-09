@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.13.3', // bump on every deploy; shown in the form footer
+  version: 'v1.13.4', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -966,11 +966,19 @@ function buildMeterIndex_(ss) {
 
   if (last >= 2) {
     var vals = sh.getRange(2, 1, last - 1, 2).getDisplayValues();
+    // raw col B alongside display: a long numeric Account ID DISPLAYS as
+    // 4.26E+09 or ######## but must be indexed by its exact digits or the
+    // form can never match what the user types
+    var raws = sh.getRange(2, 2, last - 1, 1).getValues();
     for (var i = 0; i < vals.length; i++) {
       var rr = String(vals[i][0] || '').trim();
       if (!rr) continue;
       var row = i + 2;
       var acc = String(vals[i][1] || '').trim();
+      if (raws[i] && typeof raws[i][0] === 'number' && isFinite(raws[i][0]) &&
+          (acc === '' || /E\+?\d/i.test(acc) || acc.indexOf('#') !== -1)) {
+        acc = raws[i][0].toFixed(0); // exact digits for integer account IDs
+      }
 
       var k = 'r:' + normalizeKey_(rr);
       var ks = shardForKey_(k);
@@ -1043,11 +1051,69 @@ function invalidateMeterIndex_() {
   cache.removeAll(all);
 }
 
+// display strings sent to the browser — getDisplayValues() alone renders
+// long numeric Account IDs as scientific notation (4.26E+09) and dates
+// too wide for their column as ######## — so broken displays are rebuilt
+// from the cell's RAW value + number format (read alongside display in
+// the callers). Fine displays are returned untouched.
+function cleanDisplay_(disp, raw, fmt, tz) {
+  var s = String(disp == null ? '' : disp).trim();
+  var broken = /E\+?\d/i.test(s) || s.indexOf('#') !== -1;
+  if (!broken && raw === undefined) return s; // single-arg fallback call
+
+  // date-typed cell (Date object, or date-formatted serial) → ISO date,
+  // immune to narrow columns and locale formats. Checked FIRST: a broken
+  // display could be hiding either a date or a wide number.
+  var isDate = Object.prototype.toString.call(raw) === '[object Date]';
+  var fmtDate = !isDate && typeof fmt === 'string' &&
+    /^[^\"']*[ymd][^\"']*$/i.test(fmt) && typeof raw === 'number' && isFinite(raw);
+  if (s.indexOf('#') !== -1) {
+    if (isDate) {
+      return Utilities.formatDate(raw, tz || Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    }
+    if (fmtDate) return dateFromSerial_(raw);
+  }
+
+  // numeric cell → exact digits (Number.toString() is exponent-free and
+  // precision-exact below 2^53, far past any Account ID). A '#'-display
+  // over a bare numeric with no date format is disambiguated by range:
+  // date serials are 1..~200000 (year ≤ ~2150), wider numbers are not dates.
+  if (typeof raw === 'number' && isFinite(raw) &&
+      (/E\+?\d/i.test(s) || s.indexOf('#') !== -1)) {
+    if (s.indexOf('#') !== -1 && !fmtDate &&
+        raw >= 1 && raw <= 200000) return dateFromSerial_(raw);
+    return String(raw);
+  }
+
+  // raw value unavailable (single-arg callers): salvage what the display
+  // string still shows
+  if (raw === undefined) {
+    if (/^-?\d+(?:[.,]\d+)?E\+?\d{2,}$/i.test(s)) {
+      var num = parseFloat(s);
+      if (!isNaN(num) && isFinite(num) && num % 1 === 0) s = String(num);
+    }
+    // a full '########' run has no digits to salvage — returned as-is
+  }
+  return s;
+}
+
+// turns a spreadsheet date serial number into 'yyyy-MM-dd'
+// (SpreadsheetApp serial 0 = 1899-12-30, same as Excel's epoch)
+function dateFromSerial_(n) {
+  var ms = Math.round((n - 25569) * 86400 * 1000);
+  return Utilities.formatDate(new Date(ms), 'UTC', 'yyyy-MM-dd');
+}
+
 // full meter details for the info card / drift check: ONE Master row read
 function meterDetailsByRow_(ss, row) {
   if (row < 2 || row > CONFIG.maxMasterRows + 1) return null;
-  var v = ss.getSheetByName('Master').getRange(row, 1, 1, 19).getDisplayValues()[0];
+  var rng = ss.getSheetByName('Master').getRange(row, 1, 1, 19);
+  var v = rng.getDisplayValues()[0];
   if (!String(v[0] || '').trim()) return null;
+  var raw = rng.getValues()[0];
+  var fmt = rng.getNumberFormats()[0];
+  var tz = ss.getSpreadsheetTimeZone();
+  for (var c = 0; c < v.length; c++) v[c] = cleanDisplay_(v[c], raw[c], fmt[c], tz);
   return {
     rr: String(v[0] || '').trim(), accountId: String(v[1] || '').trim(),
     tariff: String(v[2] || '').trim(), name: String(v[3] || '').trim(),

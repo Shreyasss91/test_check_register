@@ -7,6 +7,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Meter info card: field order, account digits, DOS date**
+  (`apps-script/Code.gs`, `apps-script/Index.html`): the card now presents
+  one line per group — Name · Acct / Tariff · SANC · Cont.Demand / MR ID ·
+  MR DAY · SF / Constant · Status · DOS · Make · Phases. Account IDs stored
+  as numbers no longer display as scientific notation (4.26E+09 → exact
+  digits) and DOS in a too-narrow column shows its date instead of
+  ######## (rendered as yyyy-mm-dd) — both rebuilt from the cell's raw
+  value + number format in `meterDetailsByRow_`, and the meter index now
+  keys numeric Account IDs by their exact digits so typing the real
+  account number resolves the meter. Form: Reading Pr kW and B1 kW demand
+  sit side by side in one row, as do PF and Meter status. Version bumped
+  to v1.13.4.
+
 ### Changed
 
 - **Date/Time no longer shown in the form** (`apps-script/Index.html`,
