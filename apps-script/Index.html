@@ -334,7 +334,9 @@
           if (normKey(qNow) !== asked) return; // input changed mid-flight
           if (!r || !r.ok || !r.meter) {
             meterCache[asked] = null;
-            box.textContent = 'No meter found for "' + q + '" — check the number or add it to Master.';
+            box.textContent = (r && r.ambiguous)
+              ? '"' + q + '" matches more than one meter (duplicate in Master) — type its RR Number instead.'
+              : 'No meter found for "' + q + '" — check the number or add it to Master.';
             lastMeter = null;
             return;
           }

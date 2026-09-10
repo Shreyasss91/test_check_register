@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.13.8', // bump on every deploy; shown in the form footer
+  version: 'v1.13.9', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -959,8 +959,15 @@ function noEmailLabel_(name) {
      consolidator action, not a per-keystroke path. */
 var METER_INDEX = {
   shards: 128,
-  keyPrefix: 'mridx_v1_s',
-  stampKey: 'mridx_v1_stamp'
+  // v2: pre-1.13.4 builds indexed Account IDs from display values, so a
+  // numeric account landed as 'a:426e09' (its 4.26E+09 display) instead of
+  // its exact digits. The row-count stamp would still call those poisoned
+  // shards "fresh" whenever Master's row count was unchanged, so the fix
+  // required a NAMESPACE bump — old shards are simply ignored, and the
+  // first lookup rebuilds from raw col B. Bump again if key semantics
+  // ever change (format, columns, keying rule), not on data edits.
+  keyPrefix: 'mridx_v2_s',
+  stampKey: 'mridx_v2_stamp'
 };
 
 // stable 32-bit FNV-1a so a key always lands in the same shard

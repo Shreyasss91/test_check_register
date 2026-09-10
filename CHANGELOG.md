@@ -7,6 +7,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Account-ID lookup failed even with the exact number**
+  (`apps-script/Code.gs`): the meter index caches RR/Account keys in
+  CacheService, and pre-v1.13.4 builds keyed Account IDs from their
+  DISPLAY values — a numeric account like 4255887000 landed as
+  `a:426e09` (its `4.26E+09` rendering), so searching the real digits
+  never matched. Deploying v1.13.4+ alone couldn't repair it: the index
+  freshness stamp is Master's row count, so unchanged row counts kept
+  serving the poisoned shards for up to 6 h. The index namespace is
+  bumped `mridx_v1_*` → `mridx_v2_*` so old shards are ignored and the
+  first lookup rebuilds from raw column B. The form now also says
+  "matches more than one meter (duplicate in Master) — type its RR
+  Number instead" instead of the generic "No meter found" when Master
+  holds a duplicated Account ID. Version bumped to v1.13.9.
+
 ### Added
 
 - **Dark mode for field use** (`apps-script/Index.html`): a ☾/☀ chip in
