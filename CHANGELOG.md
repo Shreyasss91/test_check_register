@@ -9,6 +9,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Configurable recent-chips count** (`apps-script/Code.gs`,
+  `apps-script/Index.html`): a new **Form Settings** column on the
+  Configuration tab holds `Key: value` lines that adjust form behavior
+  without a code change — `Recent chips: N` (0–10; 0 hides the row,
+  default 5) sets how many recent meters inspectors see. The column is
+  parsed server-side and shipped with the bootstrap (never appended to
+  month tabs or rendered as a dropdown); unknown keys and malformed
+  lines are ignored. Seeded on fresh builds and on existing
+  Configuration tabs via `setupWorkbook` (only when column B is
+  absent — never overwrites custom settings). Guests see at most 2
+  chips since their meter history is device-local. Version bumped to
+  v1.14.5.
+
+### Added
+
 - **Recent-lookup chips** (`apps-script/Index.html`): the last five
   meters an inspector resolved appear as tappable chips between the
   meter card and the readings card — one tap re-fills RR + Account ID

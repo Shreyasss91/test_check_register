@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.14.4', // bump on every deploy; shown in the form footer
+  version: 'v1.14.5', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -39,6 +39,14 @@ var CONFIG = {
 
   meterStatusHeader: 'Meter Status', // the Configuration column backing col U
   defaultMeterStatuses: ['OK', 'MNR', 'Meter burnt', 'Link burnt', 'No display', 'Not accessible', 'Others'],
+  /* Form Settings column (Configuration tab): 'Key: value' lines that
+     tweak form behavior instead of rendering a dropdown. Unknown keys and
+     malformed lines are IGNORED (forward compatibility, no health-check
+     wiring). Parsed server-side by parseFormSettings_ (via getBootstrap)
+     and shipped to the form as r.formSettings. */
+  formSettingsHeader: 'Form Settings',
+  formSettingDefaults: ['Recent chips: 5'],
+  formSettingKeyRe: /^\s*([^:]+?)\s*:\s*(.+?)\s*$/, // 'Key: value'
 
   masterHeaders: [
     'RR Number', 'Account ID', 'Tariff', 'NAME', 'SANC_KW', 'SANC_HP',
@@ -118,6 +126,13 @@ function applyConfigSheet_(ss, sh) {
   sh.setFrozenRows(1);
   sh.getRange(1, 1, CONFIG.maxConfigValues, 26).setNumberFormat('@');
   sh.setColumnWidth(1, 140);
+  // seed the Form Settings column (B) only when absent — setupWorkbook
+  // re-runs must never stomp a consolidator's customized settings
+  if (String(sh.getRange(1, 2).getDisplayValue() || '').trim() === '') {
+    sh.getRange('B1').setValue(CONFIG.formSettingsHeader);
+    sh.getRange(2, 2, CONFIG.formSettingDefaults.length, 1)
+      .setValues(CONFIG.formSettingDefaults.map(function (s) { return [s]; }));
+  }
   if (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) {
     protectStrict_(sh.protect(), 'Configuration - consolidator only');
   }
@@ -161,13 +176,36 @@ function readConfigLists_(ss) {
   return lists;
 }
 
-// dynamic (non-Meter-Status) config lists, header order preserved
+// dynamic (non-Meter-Status) config lists, header order preserved.
+// Form Settings is also excluded: it is a settings column (parsed into
+// r.formSettings by getBootstrap), NOT a register dropdown — letting it
+// through here would append it to every month tab and the form.
 function dynamicConfigLists_(lists) {
   var out = [];
   Object.keys(lists).forEach(function (h) {
-    if (h !== CONFIG.meterStatusHeader) out.push({ header: h, values: lists[h] });
+    if (h !== CONFIG.meterStatusHeader && h !== CONFIG.formSettingsHeader) {
+      out.push({ header: h, values: lists[h] });
+    }
   });
   return out;
+}
+
+// 'Key: value' lines from the Form Settings column → settings object.
+// Unknown keys ignored (forward compatibility); 'Recent chips' is the
+// only defined setting (integer 0..10, 0 hides the row).
+function parseFormSettings_(lists) {
+  var lines = lists[CONFIG.formSettingsHeader] || [];
+  var s = { recentChips: 5 };
+  for (var i = 0; i < lines.length; i++) {
+    var m = CONFIG.formSettingKeyRe.exec(lines[i]);
+    if (!m) continue;
+    var k = m[1].toLowerCase(), v = m[2];
+    if (k === 'recent chips') {
+      var n = parseInt(v, 10);
+      if (!isNaN(n)) s.recentChips = Math.max(0, Math.min(10, n));
+    }
+  }
+  return s;
 }
 
 /* ================= guests tab ================= */
@@ -1359,7 +1397,8 @@ function getBootstrap() {
       version: CONFIG.version,
       currentMonth: Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM'),
       meterStatuses: lists[CONFIG.meterStatusHeader],
-      configLists: lists
+      configLists: lists,
+      formSettings: parseFormSettings_(lists)
     };
   } catch (err) {
     return { ok: false, reason: String(err && err.message || err) };

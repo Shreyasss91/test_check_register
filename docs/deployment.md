@@ -168,6 +168,7 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
 | Inspector submits but no row | Check the month tab isn't locked (closed); check hard-block message shown by the form (unknown RR / PF range) |
 | New Configuration list not in month tabs | Run menu *Meter Register > Apply configuration changes (all months)* — or just wait: the next submit auto-adds the column |
 | "Unknown meter status" on submit | The submitted status isn't in `Configuration` column A (typo, or the form tab was open since before your edit — reload the form) |
+| Recent-meter chips missing or wrong count | Set `Recent chips: N` (0–10, 0 hides the row) in the Configuration tab's **Form Settings** column (B), then reload the form — changes apply on next boot with no redeploy. Missing column? Run `setupWorkbook` once to seed it (existing values are never overwritten) |
 | Guest rows still show `Name{email}` after adding to Team | Run menu *Meter Register > Sync guest names from Team* (also clears them from `Guests`) |
     | `Name{email}` entries flagged by the Entered-By dropdown | Expected: the dropdown warns for values outside Team but never blocks — guest entries are legitimate |
     | Meter still "Unknown RR" or history/duplicate flags look wrong after upgrading to v1.8.0 | Re-run menu *Meter Register > Refresh check formulas (all months)* — it now also rewrites the hidden `_Keys` mirror so both key generations match |

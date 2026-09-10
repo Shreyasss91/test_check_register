@@ -90,6 +90,7 @@
 <script>
   var QKEY = 'mrq_v1', CONFIG_LISTS = {}, IS_GUEST = false, NO_EMAIL = false, submitting = false;
   var TKEY = 'mr_theme';
+  var FORM_SETTINGS = { recentChips: 5 }; // server-overridden at boot
 
   /* ---------- theme (dark mode for outdoor sunlight/shade use) ---------- */
   function applyTheme(dark) {
@@ -147,6 +148,13 @@
     document.getElementById('who').textContent =
       IS_GUEST ? (r.user.name || 'guest') + ' (not in Team)' : r.user.name;
     CONFIG_LISTS = r.configLists || {};
+    // Form Settings column (Configuration tab) parsed server-side; the
+    // recent-chips count is team-wide but chips stay hidden for guests —
+    // their meter-level history is device-local and often shared devices
+    if (r.formSettings) {
+      FORM_SETTINGS = r.formSettings;
+      if (IS_GUEST && FORM_SETTINGS.recentChips > 2) FORM_SETTINGS.recentChips = 2;
+    }
 
     var statusList = r.meterStatuses || CONFIG_LISTS['Meter Status'] || ['OK'];
     var extraLists = [];
@@ -517,19 +525,20 @@
   }
   function recordRecent(m) {
     if (!m || (!m.rr && !m.accountId)) return;
+    if (FORM_SETTINGS.recentChips <= 0) return; // chips disabled by config
     var list = recentGet().filter(function (x) {
       return x.rr !== m.rr || x.accountId !== m.accountId; // move-to-front dedupe
     });
     list.unshift({ rr: m.rr || '', accountId: m.accountId || '', name: m.name || '' });
-    recentSet(list.slice(0, 5));
+    recentSet(list.slice(0, FORM_SETTINGS.recentChips));
   }
   function renderRecent() {
     var box = document.getElementById('recentChips');
     if (!box) return;
     var list = recentGet();
-    if (!list.length) { box.style.display = 'none'; return; }
+    if (!list.length || FORM_SETTINGS.recentChips <= 0) { box.style.display = 'none'; return; }
     box.innerHTML = '';
-    list.forEach(function (x) {
+    list.slice(0, FORM_SETTINGS.recentChips).forEach(function (x) {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'chip';
