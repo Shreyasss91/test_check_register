@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.14.1', // bump on every deploy; shown in the form footer
+  version: 'v1.14.2', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -467,6 +467,9 @@ function newMonthSheet() {
   if (ss.getSheetByName(name)) { ui.alert('"' + name + '" already exists.'); return; }
   buildMonthSheet_(ss, name);
   refreshConsolidated_(ss);
+  // cache-audit fix: a deleted-and-recreated month tab kept the old
+  // capacity-alert property, silently suppressing the new tab's 90% email
+  PropertiesService.getScriptProperties().deleteProperty('capAlert_' + name);
   ss.setActiveSheet(ss.getSheetByName(name));
 }
 

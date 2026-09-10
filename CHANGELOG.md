@@ -7,6 +7,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Cache audit** (`apps-script/Code.gs`, `AGENTS.md`): audited every
+  persistent store — the meter index is the only CacheService consumer
+  (shards + freshness stamp + 5-min negative cache), and
+  PropertiesService holds one capacity-alert flag per month tab. Fixed
+  the one latent trap found: `newMonthSheet` now deletes the old
+  `capAlert_<tab>` property when a month tab is deleted and recreated
+  with the same name, so the new tab's 90%-capacity email isn't
+  silently suppressed. Codified the convention in AGENTS.md: caches
+  whose payload meaning can change must embed a semantic version in
+  their keys (`mridx_v2_*` template) and bump it with the change.
+  Version bumped to v1.14.2.
+
 ### Added
 
 - **Lookup can no longer return a false "No meter found"**

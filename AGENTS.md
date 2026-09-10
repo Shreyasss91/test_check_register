@@ -33,6 +33,18 @@ Apps Script editor).
   negative-caches verified misses for 5 min. Index may NOT be the sole
   arbiter of "not found"; *Meter index diagnostics…* menu item shows
   its live state.
+- **Cached-state convention** (cache audit): CacheService and
+  PropertiesService are the only persistent stores, and every cache
+  whose payload MEANING can change (key format, source columns, keying
+  rule) embeds a semantic version in its key — `mridx_v2_*` is the
+  template. Bump that version as part of the change: freshness stamps
+  (Master's row count) cannot detect semantic drift, so old shards
+  serve stale-but-"fresh" data otherwise (the v1.13.9 account bug).
+  Flags tied to sheet identity (`capAlert_<tab>`) must be cleaned up
+  when the sheet is recreated (`newMonthSheet` deletes it). Current
+  inventory: meter-index shards + stamp, meter-index negative cache
+  (`mridx_v2_*neg_<key>`, 5-min TTL), capacity-alert flags
+  (PropertiesService).
 - **`buildMaster_` migrates in place** when Master has data (never
   wipe); throws on unmapped custom columns instead of dropping them.
 - **Month tab fixed layout**: cols A..AI (1..35) + dynamic config cols
