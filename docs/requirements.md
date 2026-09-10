@@ -215,6 +215,13 @@ format keeps later pivots easy (Entered By, RR Number, month). One live
 | D25 | RR/Account-ID normalization strips everything except letters and digits (case-insensitive) — implemented identically server-side (`normalizeKey_`), client-side (`normKey`) and in the sheet key formulas (`_Keys` + month-tab key column) | typed, handwritten or legacy RR Numbers with stray punctuation/dashes/spacing never false-flag or double-count a meter |
 | D26 | Master carries the utility-registry reference block (Tariff, SANC_KW, SANC_HP, CONT_DEM, DOS, STATUS + renamed MR ID / MR DAY / METER CONSTANT / METER_SERIAL_NO) in the export column order; shown in the form's meter card; migrating an existing populated Master re-maps columns in place instead of wiping | inspectors see sanction/demand/status context at the spot; existing workbooks keep their meter data on upgrade |
 | D27 | Master scales to 30,000 meters; the form never downloads Master — meter resolution is a server-side lookup against a cache-sharded key index (RR/Account-ID → row), rebuilt automatically when Master's row count changes; submit validation and spot-drift checks use the same index; a per-session client cache memoizes resolved meters | O(1) lookups and small payloads at any Master size; no false "Unknown RR" from a read cap; one rebuild path to maintain. Constraints enforced for any future change: see [`CLAUDE.md`](../CLAUDE.md) and [`AGENTS.md`](../AGENTS.md). |
+| D28 | Recent meters appear as tappable chips between the meter and readings cards; the count is a team-wide setting, `Recent chips: N` (0–10, 0 hides) in the Configuration tab's **Form Settings** column — a settings column, not a dropdown list. The column is parsed server-side (`parseFormSettings_`) into the bootstrap; unknown keys and malformed lines are ignored; guests are capped at 2 chips (device-local history on possibly shared devices). The **settings registry** below is the authoritative key list | zero-code form tuning from the sheet; one documented place to add the next setting |
+
+### Form Settings registry (D28)
+
+| Key | Values | Effect |
+|---|---|---|
+| `Recent chips` | integer 0–10, default `5` | How many recent meters show as chips (0 hides the row). Guests capped at 2 |
 
 ## 12. Open questions
 

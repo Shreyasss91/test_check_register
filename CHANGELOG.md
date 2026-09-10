@@ -9,6 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Form Settings registry** (`docs/requirements.md`): new decision
+  D28 documents the recent-chips feature and establishes the registry
+  — the authoritative `Key: value` list for the Configuration tab's
+  Form Settings column, starting with `Recent chips` (0–10, default
+  5, guests capped at 2). Future settings must be added to the
+  registry as part of their change. Version bumped to v1.14.6.
+
+### Added
+
 - **Configurable recent-chips count** (`apps-script/Code.gs`,
   `apps-script/Index.html`): a new **Form Settings** column on the
   Configuration tab holds `Key: value` lines that adjust form behavior
