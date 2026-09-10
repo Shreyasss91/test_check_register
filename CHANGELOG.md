@@ -7,6 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Recent-lookup chips** (`apps-script/Index.html`): the last five
+  meters an inspector resolved appear as tappable chips between the
+  meter card and the readings card — one tap re-fills RR + Account ID
+  and re-triggers the lookup. Stored device-locally (localStorage,
+  try/catch-guarded like the offline queue), newest-first with
+  move-to-front dedupe, capped at 5, blanked on logout. Chips inherit
+  the theme (light/dark) via the existing CSS variables. Version
+  bumped to v1.14.4.
+
 ### Changed
 
 - **Info card mirrors the identifier you typed**

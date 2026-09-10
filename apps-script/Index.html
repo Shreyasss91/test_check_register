@@ -42,6 +42,11 @@
     summary { cursor:pointer; font-size:13px; color:var(--blue); font-weight:500; }
     #meterInfo { display:none; margin-top:8px; font-size:13px; background:var(--accent); color:var(--accentText);
                  border-radius:6px; padding:8px 10px; line-height:1.5; }
+    .chips { display:none; flex-wrap:wrap; gap:6px; margin:-4px 0 10px; }
+    .chip { font-size:12px; padding:5px 10px; border-radius:14px; cursor:pointer;
+            background:var(--accent); color:var(--accentText); border:none;
+            max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .chip:active { opacity:.75; }
     button.submit { position:fixed; bottom:0; left:0; right:0; width:100%; border:none;
             background:var(--blue); color:var(--card); font-size:17px; padding:17px; cursor:pointer; }
     button.submit:disabled { opacity:.6; }
@@ -198,6 +203,8 @@
         '</div></details>' +
       '</div>' +
 
+      '<div class="chips" id="recentChips"></div>' +
+
       '<div class="card">' +
         '<label>Reading CKWh <small class="req">*</small></label>' +
         '<input type="number" id="ckwh" step="0.01" min="0" inputmode="decimal">' +
@@ -226,6 +233,7 @@
     document.getElementById('rr').addEventListener('input', onRR);
     document.getElementById('acct').addEventListener('input', onRR);
     wireEnterAdvance();
+    renderRecent();
     if (r.version) document.getElementById('ver').textContent = 'Meter Register ' + r.version;
 
     var sel = document.getElementById('status');
@@ -343,6 +351,7 @@
           }
           meterCache[asked] = { m: r.meter, other: r.other };
           showMeter(r.meter, r.other);
+          recordRecent(r.meter);
         })
         .withFailureHandler(function (e) {
           if (seq !== rrSeq) return;
@@ -493,6 +502,47 @@
   function qSet(q) { localStorage.setItem(QKEY, JSON.stringify(q)); renderQ(); }
   function qFailGet() { try { return JSON.parse(localStorage.getItem(QFKEY)) || []; } catch (e) { return []; } }
   function qFailSet(q) { localStorage.setItem(QFKEY, JSON.stringify(q)); renderQ(); }
+
+  /* ---------- recent meters (device-local chips above the RR field) ----------
+     Inspectors re-visit the same meters; the last few lookups become tappable
+     chips that re-fill RR/Acct and trigger the same debounced lookup. */
+  var RECENT_KEY = 'mr_recent_v1';
+  function recentGet() {
+    try { return JSON.parse(localStorage.getItem(RECENT_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function recentSet(list) {
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch (e) {}
+    renderRecent();
+  }
+  function recordRecent(m) {
+    if (!m || (!m.rr && !m.accountId)) return;
+    var list = recentGet().filter(function (x) {
+      return x.rr !== m.rr || x.accountId !== m.accountId; // move-to-front dedupe
+    });
+    list.unshift({ rr: m.rr || '', accountId: m.accountId || '', name: m.name || '' });
+    recentSet(list.slice(0, 5));
+  }
+  function renderRecent() {
+    var box = document.getElementById('recentChips');
+    if (!box) return;
+    var list = recentGet();
+    if (!list.length) { box.style.display = 'none'; return; }
+    box.innerHTML = '';
+    list.forEach(function (x) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = (x.rr || x.accountId) + (x.name ? ' · ' + x.name : '');
+      b.addEventListener('click', function () {
+        document.getElementById('rr').value = x.rr || '';
+        document.getElementById('acct').value = x.accountId || '';
+        onRR(); // debounced lookup of the re-filled fields
+      });
+      box.appendChild(b);
+    });
+    box.style.display = 'flex';
+  }
 
   function enqueue(p) { var q = qGet(); q.push({ at: new Date().toISOString(), p: p }); qSet(q); }
 
