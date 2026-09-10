@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.13.9', // bump on every deploy; shown in the form footer
+  version: 'v1.14.0', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -313,6 +313,7 @@ function onOpen() {
     .addItem('Install weekly digest trigger (Mon 8am)', 'installWeeklyDigest')
     .addSeparator()
     .addItem('Master health check…', 'masterHealthCheck')
+    .addItem('Meter index diagnostics…', 'meterIndexDiagnostics')
     .addItem('Sync guest names from Team', 'syncGuestNames')
     .addSeparator()
     .addItem('Rebuild all sheets (erases data!)', 'rebuildWithConfirm')
@@ -1075,6 +1076,73 @@ function invalidateMeterIndex_() {
   var all = [METER_INDEX.stampKey];
   for (var b = 0; b < METER_INDEX.shards; b++) all.push(METER_INDEX.keyPrefix + b);
   cache.removeAll(all);
+}
+
+// stats for the diagnostics dialog: is the index populated and fresh, how
+// many RR/Account keys does it hold. READ-ONLY — touches no cache state.
+function meterIndexStats_(ss) {
+  var cache = CacheService.getScriptCache();
+  var shards = 0, rrKeys = 0, accKeys = 0;
+  for (var b = 0; b < METER_INDEX.shards; b++) {
+    var raw = cache.get(METER_INDEX.keyPrefix + b);
+    if (raw === null) continue;
+    shards++;
+    var o = JSON.parse(raw);
+    for (var k in o) {
+      if (k.charAt(0) === 'r') rrKeys++; else accKeys++;
+    }
+  }
+  return {
+    keyPrefix: METER_INDEX.keyPrefix,
+    stamp: cache.get(METER_INDEX.stampKey),
+    masterLastRow: ss.getSheetByName('Master').getLastRow(),
+    shards: shards,
+    totalShards: METER_INDEX.shards,
+    rrKeys: rrKeys,
+    accKeys: accKeys
+  };
+}
+
+// menu-driven diagnostics: shows index population/freshness and tests a
+// typed RR or Account ID against the SAME cache path the form uses.
+// Uses uiAlert_ (SpreadsheetApp.getUi() fails from the editor Run button).
+function meterIndexDiagnostics() {
+  var ss = SpreadsheetApp.getActive();
+  var prompt = SpreadsheetApp.getUi().prompt(
+    'Meter index diagnostics',
+    'Test an RR number or Account ID against the lookup index '
+      + '(leave empty to skip the test):',
+    SpreadsheetApp.getUi().ButtonSet.OK_CANCEL);
+  if (prompt.getSelectedButton() !== SpreadsheetApp.getUi().Button.OK) return;
+  var q = prompt.getResponseText().trim();
+
+  var s = meterIndexStats_(ss);
+  var lines = [
+    'Namespace: ' + s.keyPrefix,
+    'Freshness stamp: ' + (s.stamp === null ? '(none - rebuilds on next lookup)'
+      : s.stamp) + '   Master last row: ' + s.masterLastRow,
+    (s.stamp !== null && Number(s.stamp) === s.masterLastRow ? 'Index is FRESH' : 'Index is STALE/EMPTY - rebuilds on next lookup'),
+    'Shards populated: ' + s.shards + ' / ' + s.totalShards,
+    'RR keys: ' + s.rrKeys + '   Account keys: ' + s.accKeys
+  ];
+
+  if (q) {
+    var nq = normalizeKey_(q);
+    var hit = lookupMeterByKey_(ss, 'r:' + nq);
+    var via = 'RR';
+    if (!hit) { hit = lookupMeterByKey_(ss, 'a:' + nq); via = 'Account'; }
+    if (hit && hit.ambiguous) {
+      lines.push('', 'TEST "' + q + '": matches more than one meter (duplicate ' + via + ')');
+    } else if (hit) {
+      lines.push('', 'TEST "' + q + '": FOUND as ' + via + ' - Master row ' + hit.row
+        + '  (RR ' + hit.rr + ' / Acct ' + hit.acc + ')');
+      var m = meterDetailsByRow_(ss, hit.row);
+      lines.push('Card reads: ' + (m ? m.name + ' / Acct ' + m.accountId : '(row now empty!)'));
+    } else {
+      lines.push('', 'TEST "' + q + '": NOT in the index');
+    }
+  }
+  uiAlert_(ss, lines.join('\n'));
 }
 
 // display strings sent to the browser — getDisplayValues() alone renders

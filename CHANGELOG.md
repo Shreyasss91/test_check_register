@@ -7,6 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Meter index diagnostics** (`apps-script/Code.gs`): new menu item
+  *Meter Register > Meter index diagnostics…* shows the lookup index's
+  namespace, freshness stamp vs Master's actual last row, populated
+  shard count and RR/Account key counts, and tests a typed RR or
+  Account ID through the exact cache path the form uses (reports the
+  Master row and card values on a hit, and distinguishes "not in the
+  index" from "duplicate in Master"). Read-only. Version bumped to
+  v1.14.0.
+
 ### Fixed
 
 - **Account-ID lookup failed even with the exact number**
