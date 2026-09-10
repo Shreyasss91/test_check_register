@@ -9,6 +9,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Clear button for recent-meter chips** (`apps-script/Index.html`):
+  a ✕ chip at the end of the recent-meters row wipes the device-local
+  history. Two-tap protection against accidental wipes on a busy phone:
+  the first tap arms it (✕ → "Clear?", error-red border), a second tap
+  within 3 s clears and shows a "Recent meters cleared" toast; tapping
+  elsewhere or waiting disarms it. No modal dialogs in the field.
+  Version bumped to v1.14.8.
+
+### Added
+
 - **Form Settings validation in the health check**
   (`apps-script/Code.gs`): *Master health check* now also audits the
   Configuration tab's Form Settings column — malformed lines and

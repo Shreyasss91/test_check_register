@@ -47,6 +47,9 @@
             background:var(--accent); color:var(--accentText); border:none;
             max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .chip:active { opacity:.75; }
+    .chip.clear { background:transparent; color:var(--muted); border:1px solid var(--line);
+                  padding:4px 9px; font-weight:500; }
+    .chip.clear.confirm { color:var(--err); border-color:var(--err); font-weight:700; }
     button.submit { position:fixed; bottom:0; left:0; right:0; width:100%; border:none;
             background:var(--blue); color:var(--card); font-size:17px; padding:17px; cursor:pointer; }
     button.submit:disabled { opacity:.6; }
@@ -550,6 +553,28 @@
       });
       box.appendChild(b);
     });
+    // clear affordance: first tap arms it (✕ → "Clear?"), second tap within
+    // 3 s wipes the device-local list — no accidental wipes on a busy phone,
+    // no modal dialog in the inspector's way
+    var c = document.createElement('button');
+    c.type = 'button';
+    c.className = 'chip clear';
+    c.textContent = '✕';
+    c.title = 'Clear recent meters';
+    c.addEventListener('click', function () {
+      if (c.classList.contains('confirm')) {
+        recentSet([]); // recentSet renders — chips row hides itself
+        toast('Recent meters cleared', true);
+      } else {
+        c.classList.add('confirm');
+        c.textContent = 'Clear?';
+        setTimeout(function () {
+          c.classList.remove('confirm');
+          c.textContent = '✕';
+        }, 3000);
+      }
+    });
+    box.appendChild(c);
     box.style.display = 'flex';
   }
 
