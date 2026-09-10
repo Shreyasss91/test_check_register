@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.14.6', // bump on every deploy; shown in the form footer
+  version: 'v1.14.7', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -47,6 +47,9 @@ var CONFIG = {
   formSettingsHeader: 'Form Settings',
   formSettingDefaults: ['Recent chips: 5'],
   formSettingKeyRe: /^\s*([^:]+?)\s*:\s*(.+?)\s*$/, // 'Key: value'
+  // known setting keys (lowercase) — parseFormSettings_ honors these;
+  // masterHealthCheck flags anything outside this list as a typo
+  formSettingKeys: ['recent chips'],
 
   masterHeaders: [
     'RR Number', 'Account ID', 'Tariff', 'NAME', 'SANC_KW', 'SANC_HP',
@@ -206,6 +209,23 @@ function parseFormSettings_(lists) {
     }
   }
   return s;
+}
+
+// audit the Form Settings column for the consolidator (health check):
+// malformed lines and unknown keys mean a setting is silently inert —
+// surfacing them turns 'I edited the sheet but nothing changed' into a
+// one-look fix. Returns human-readable issue lines (empty = all good).
+function validateFormSettings_(lists) {
+  var lines = lists[CONFIG.formSettingsHeader] || [];
+  var issues = [];
+  for (var i = 0; i < lines.length; i++) {
+    var m = CONFIG.formSettingKeyRe.exec(lines[i]);
+    if (!m) { issues.push('"' + lines[i] + '" - not a Key: value line'); continue; }
+    if (CONFIG.formSettingKeys.indexOf(m[1].toLowerCase()) === -1) {
+      issues.push('"' + m[1] + '" - unknown setting key (check spelling / docs D28)');
+    }
+  }
+  return issues;
 }
 
 /* ================= guests tab ================= */
@@ -930,9 +950,21 @@ function masterHealthCheck() {
   }
   if (sampleRows) lines.push('Sample rows still present: ' + sampleRows + ' (delete once real meters exist).');
 
-  if (!dupRR.length && !dupAcc.length && !blanks.length && !sampleRows) {
+  // Form Settings audit: an inert setting looks identical to a working
+  // one from the sheet — surface typos/unknown keys while we're here
+  var fsIssues = validateFormSettings_(readConfigLists_(ss));
+  if (fsIssues.length) {
+    lines.push('');
+    lines.push('FORM SETTINGS issues (Configuration tab, column B) - these lines do nothing:');
+    fsIssues.forEach(function (d) { lines.push('  • ' + d); });
+  }
+
+  var masterClean = !dupRR.length && !dupAcc.length && !blanks.length && !sampleRows;
+  if (masterClean && !fsIssues.length) {
+    lines.push('');
     lines.push('No problems found — Master is clean. ✓');
-  } else {
+  } else if (!masterClean) {
+    lines.push('');
     lines.push('Tip: blank/duplicate values silently weaken auto-lookups and the ⚠ checks — fix them in Master.');
   }
   SpreadsheetApp.getUi().alert('Master health check', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);

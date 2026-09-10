@@ -9,6 +9,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Form Settings validation in the health check**
+  (`apps-script/Code.gs`): *Master health check* now also audits the
+  Configuration tab's Form Settings column — malformed lines and
+  unknown setting keys (typos) are reported with the offending text so
+  an inert setting stops looking identical to a working one. Out-of-
+  range values are NOT flagged (they parse and clamp by design).
+  Setting keys are registered in `CONFIG.formSettingKeys`, consumed by
+  both the parser and the validator. Version bumped to v1.14.7.
+
+### Added
+
 - **Form Settings registry** (`docs/requirements.md`): new decision
   D28 documents the recent-chips feature and establishes the registry
   — the authoritative `Key: value` list for the Configuration tab's
