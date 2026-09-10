@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.14.2', // bump on every deploy; shown in the form footer
+  version: 'v1.14.3', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -1314,7 +1314,15 @@ function lookupMeter(query) {
     if (hit.ambiguous) return { ok: true, meter: null, ambiguous: true }; // client maps this to the duplicate-account message
 
     var m = meterDetailsByRow_(ss, hit.row);
-    return { ok: true, meter: m, other: hit.acc && hit.acc !== q ? hit.acc : null };
+    // 'other' = the identifier the user did NOT type, so the card can show
+    // it explicitly (the display value mirrors the input field). Whatever
+    // the query matched, normalizeKey_ equality decides — avoiding false
+    // 'other' when the user typed the same value in a different format
+    // (spaces, dashes, case).
+    var typedRR = normalizeKey_(q) === normalizeKey_(m.rr);
+    var typedAcc = normalizeKey_(q) === normalizeKey_(m.accountId);
+    var other = typedAcc ? m.rr : (typedRR ? null : (m.accountId || m.rr));
+    return { ok: true, meter: m, other: other };
   } catch (err) {
     return { ok: false, reason: String(err && err.message || err) };
   }

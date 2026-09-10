@@ -315,7 +315,8 @@
     var box = document.getElementById('meterInfo');
 
     if (!q) { box.style.display = 'none'; lastMeter = null; return; }
-    if (meterCache[normKey(q)]) { showMeter(meterCache[normKey(q)]); return; }
+    var cached = meterCache[normKey(q)];
+    if (cached) { showMeter(cached.m, cached.other); return; }
 
     box.style.display = 'block';
     box.textContent = 'Looking up ' + q + '…';
@@ -340,8 +341,8 @@
             lastMeter = null;
             return;
           }
-          meterCache[asked] = r.meter;
-          showMeter(r.meter);
+          meterCache[asked] = { m: r.meter, other: r.other };
+          showMeter(r.meter, r.other);
         })
         .withFailureHandler(function (e) {
           if (seq !== rrSeq) return;
@@ -352,13 +353,16 @@
     }, 300);
   }
 
-  function showMeter(m) {
+  function showMeter(m, other) {
     var box = document.getElementById('meterInfo');
     // presentation order (1 field-line per request):
     //   1 Name, Acct  ·  2 Tariff, Sanc kW/HP, Cont.Demand
     //   3 MR ID, MR DAY, SF  ·  4 Constant, Status, DOS, Make, Phases
+    // When the user searched by Account ID, line 1 shows the RR Number
+    // instead (mirrors the input field — see lookupMeter's 'other').
+    var accTyped = other === m.rr; // 'other' holds the RR → the user typed the Account ID
     box.textContent =
-      'Name: ' + (m.name || '—') + ' · Acct: ' + (m.accountId || '—') +
+      'Name: ' + (m.name || '—') + ' · ' + (accTyped ? 'RR: ' + (m.rr || '—') : 'Acct: ' + (m.accountId || '—')) +
       '\nTariff: ' + (m.tariff || '—') + ' · SANC: ' + (m.sancKw || '—') + ' kW / ' +
       (m.sancHp || '—') + ' HP · Cont.Demand: ' + (m.contDem || '—') +
       '\nMR ID: ' + (m.mrid || '—') + ' · MR DAY: ' + (m.mdDay || '—') + ' · SF: ' + (m.sf || '—') +

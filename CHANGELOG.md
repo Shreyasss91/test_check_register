@@ -7,6 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Info card mirrors the identifier you typed**
+  (`apps-script/Code.gs`, `apps-script/Index.html`): searching by
+  Account ID now shows **RR: <number>** on the card's first line —
+  the mirror image of how searching by RR shows the Acct. The server
+  computes "the identifier you didn't type" (normalized comparison, so
+  formatting differences don't produce a false mirror), and the meter
+  cache stores the variant alongside the details so repeated lookups
+  render identically. Version bumped to v1.14.3.
+
 ### Fixed
 
 - **Cache audit** (`apps-script/Code.gs`, `AGENTS.md`): audited every
