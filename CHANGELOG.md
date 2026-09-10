@@ -9,6 +9,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Lookup can no longer return a false "No meter found"**
+  (`apps-script/Code.gs`): when the meter index misses, `lookupMeter`
+  now falls back to one direct Master A:B scan with the same raw-digit
+  rescue the index uses. A hit is served immediately AND triggers an
+  index rebuild (self-heal), so a stale-but-stamped or in-place-edited
+  index can never block an inspector. Verified misses are
+  negative-cached for 5 minutes so typo-retries don't re-scan 30k rows
+  per keystroke. Version bumped to v1.14.1.
+
+### Added
+
 - **Meter index diagnostics** (`apps-script/Code.gs`): new menu item
   *Meter Register > Meter index diagnostics…* shows the lookup index's
   namespace, freshness stamp vs Master's actual last row, populated

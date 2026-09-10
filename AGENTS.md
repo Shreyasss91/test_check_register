@@ -23,7 +23,16 @@ Apps Script editor).
   an RR). Freshness stamp = Master `getLastRow()` raw — NOT clamped to
   `maxMasterRows` (clamping saturates and misses changes). In-place RR
   swaps (same row count) need `invalidateMeterIndex_()` — called by
-  `refreshCheckFormulas` and `setupWorkbook`.
+  `refreshCheckFormulas` and `setupWorkbook`. Cache-key namespace
+  (`mridx_v2_*`) must be BUMPED whenever key semantics change (format,
+  source columns, keying rule) — the row-count stamp cannot detect
+  semantic changes, and old shards then serve stale-but-"fresh" data
+  (the v1.13.9 poisoned-account bug). A false index miss is survivable:
+  `lookupMeter` falls back to a direct Master scan
+  (`fallbackMeterScan_`), self-heals the index on a hit, and
+  negative-caches verified misses for 5 min. Index may NOT be the sole
+  arbiter of "not found"; *Meter index diagnostics…* menu item shows
+  its live state.
 - **`buildMaster_` migrates in place** when Master has data (never
   wipe); throws on unmapped custom columns instead of dropping them.
 - **Month tab fixed layout**: cols A..AI (1..35) + dynamic config cols

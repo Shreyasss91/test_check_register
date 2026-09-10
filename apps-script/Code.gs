@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.14.0', // bump on every deploy; shown in the form footer
+  version: 'v1.14.1', // bump on every deploy; shown in the form footer
   prefillRows: 1000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -1069,6 +1069,49 @@ function lookupMeterByKey_(ss, key) {
   return entry || null;
 }
 
+// last-resort truth check: the index can return a false "not found" when
+// its contents are wrong but the row-count stamp still says fresh (the
+// v1.13.9 poisoned-account bug), or after an in-place Master edit (same
+// row count, no stamp move). One direct scan of Master A:B verifies every
+// index miss; a hit proves the index wrong and triggers a rebuild. A
+// verified miss is remembered briefly so typo-retries don't re-scan 30k
+// rows on every keystroke.
+var METER_INDEX_NEG_PREFIX = METER_INDEX.keyPrefix + 'neg_';
+function fallbackMeterScan_(ss, nq) {
+  if (!nq) return null;
+  var cache = CacheService.getScriptCache();
+  if (cache.get(METER_INDEX_NEG_PREFIX + nq) === '1') return null;
+
+  var sh = ss.getSheetByName('Master');
+  var last = Math.min(sh.getLastRow(), CONFIG.maxMasterRows + 1);
+  if (last < 2) return null;
+  var vals = sh.getRange(2, 1, last - 1, 2).getDisplayValues();
+  var raws = sh.getRange(2, 2, last - 1, 1).getValues();
+
+  var found = null;
+  for (var i = 0; i < vals.length; i++) {
+    var rr = String(vals[i][0] || '').trim();
+    if (!rr && !found) continue; // RR column is the row's identity
+    var acc = String(vals[i][1] || '').trim();
+    if (raws[i] && typeof raws[i][0] === 'number' && isFinite(raws[i][0]) &&
+        (acc === '' || /E\+?\d/i.test(acc) || acc.indexOf('#') !== -1)) {
+      acc = raws[i][0].toFixed(0); // same raw-digit rescue as buildMeterIndex_
+    }
+    if ((rr && normalizeKey_(rr) === nq) || (acc && normalizeKey_(acc) === nq)) {
+      if (!found) found = { rr: rr, acc: acc, row: i + 2 };
+      else if (found.rr !== rr) found = { rr: found.rr, acc: found.acc,
+        row: found.row, ambiguous: true }; // first match wins, dup marks ambiguous
+    }
+  }
+
+  if (found) {
+    buildMeterIndex_(ss); // index missed a real meter - heal it
+  } else {
+    cache.put(METER_INDEX_NEG_PREFIX + nq, '1', 300); // verified miss: 5 min
+  }
+  return found;
+}
+
 // drops the cached index (after consolidator rebuilds/migrations that
 // don't move the last row) - the next lookup rebuilds it
 function invalidateMeterIndex_() {
@@ -1257,11 +1300,15 @@ function lookupMeter(query) {
     if (!q) return { ok: true, meter: null };
     if (q.length > 50) return { ok: true, meter: null };
 
-    // resolve RR first, then Account — mirrors the form's field priority
+    // resolve RR first, then Account — mirrors the form's field priority.
+    // A miss falls back to one direct Master scan: the index can hold
+    // stale-but-stamped data, and a false "No meter found" blocks an
+    // inspector in the field.
     var hit = lookupMeterByKey_(ss, 'r:' + normalizeKey_(q));
     if (!hit) hit = lookupMeterByKey_(ss, 'a:' + normalizeKey_(q));
+    if (!hit) hit = fallbackMeterScan_(ss, normalizeKey_(q));
     if (!hit) return { ok: true, meter: null };
-    if (hit.ambiguous) return { ok: true, meter: null, ambiguous: true };
+    if (hit.ambiguous) return { ok: true, meter: null, ambiguous: true }; // client maps this to the duplicate-account message
 
     var m = meterDetailsByRow_(ss, hit.row);
     return { ok: true, meter: m, other: hit.acc && hit.acc !== q ? hit.acc : null };
