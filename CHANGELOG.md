@@ -16,6 +16,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (all months)* to extend their auto-formulas (V..AB) and validations to
   the new rows. Version bumped to v1.14.9.
 
+- **Form Settings now apply to guests; hidden from form** (`apps-script/Index.html`):
+  The `Recent chips` setting (Configuration tab → Form Settings column)
+  now applies to **all users including guests** — the 2-chip guest cap
+  is removed. The "Form Settings" column is also **no longer rendered**
+  as an "Additional details" dropdown in the web form (it was being
+  included in the dynamic config list by mistake). Version bumped to v1.14.10.
+
 ### Added
 
 - **Clear button for recent-meter chips** (`apps-script/Index.html`):

@@ -156,13 +156,12 @@
     // their meter-level history is device-local and often shared devices
     if (r.formSettings) {
       FORM_SETTINGS = r.formSettings;
-      if (IS_GUEST && FORM_SETTINGS.recentChips > 2) FORM_SETTINGS.recentChips = 2;
     }
 
     var statusList = r.meterStatuses || CONFIG_LISTS['Meter Status'] || ['OK'];
     var extraLists = [];
     Object.keys(CONFIG_LISTS).forEach(function (h) {
-      if (h !== 'Meter Status') extraLists.push({ header: h, values: CONFIG_LISTS[h] });
+      if (h !== 'Meter Status' && h !== 'Form Settings') extraLists.push({ header: h, values: CONFIG_LISTS[h] });
     });
     var extraCard = '';
     if (extraLists.length) {
