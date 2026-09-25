@@ -25,8 +25,8 @@
  */
 
 var CONFIG = {
-  version: 'v1.14.8', // bump on every deploy; shown in the form footer
-  prefillRows: 1000,
+  version: 'v1.14.9', // bump on every deploy; shown in the form footer
+  prefillRows: 2000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
   maxConfigValues: 100, // per Configuration column

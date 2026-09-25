@@ -7,6 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Month tab capacity increased to 2000 rows** (`apps-script/Code.gs`):
+  `CONFIG.prefillRows` raised from 1000 to 2000 so month tabs can hold
+  twice as many pre-filled formula rows before hitting the 90% capacity
+  alert. Existing month tabs need *Meter Register > Refresh check formulas
+  (all months)* to extend their auto-formulas (V..AB) and validations to
+  the new rows. Version bumped to v1.14.9.
+
 ### Added
 
 - **Clear button for recent-meter chips** (`apps-script/Index.html`):
