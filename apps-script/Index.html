@@ -93,7 +93,31 @@
 <script>
   var QKEY = 'mrq_v1', CONFIG_LISTS = {}, IS_GUEST = false, NO_EMAIL = false, submitting = false;
   var TKEY = 'mr_theme';
-  var FORM_SETTINGS = { recentChips: 5 }; // server-overridden at boot
+  var FORM_SETTINGS = { recentChips: 5, requiredFields: ['ckwh', 'b1kw'] }; // server-overridden at boot
+
+  /* Mandatory reading fields (D29): canonical key -> form element id and the
+     message shown when a required field is blank. The server ships the
+     required list (Configuration tab -> Form Settings -> 'Required fields');
+     RR/Account "at least one" stays structural and is not in this map. */
+  var FIELD_IDS = {
+    ckwh: 'ckwh', prkw: 'prk', pf: 'pf', status: 'status',
+    b1kwh: 'bk1', b2kwh: 'bk2', b3kwh: 'bk3', b4kwh: 'bk4', b5kwh: 'bk5', b6kwh: 'bk6',
+    b1kw: 'bw1', b2kw: 'bw2', b3kw: 'bw3', b4kw: 'bw4', b5kw: 'bw5', b6kw: 'bw6'
+  };
+  var FIELD_LABELS = {
+    ckwh: 'CKWh reading', prkw: 'Pr kW reading', pf: 'PF', status: 'Meter status',
+    b1kwh: 'B1 kWh', b2kwh: 'B2 kWh', b3kwh: 'B3 kWh', b4kwh: 'B4 kWh', b5kwh: 'B5 kWh', b6kwh: 'B6 kWh',
+    b1kw: 'B1 kW', b2kw: 'B2 kW', b3kw: 'B3 kW', b4kw: 'B4 kW', b5kw: 'B5 kW', b6kw: 'B6 kW'
+  };
+
+  // shows the red * on exactly the fields the Configuration tab marks required
+  function syncReqMarks() {
+    var req = FORM_SETTINGS.requiredFields || [];
+    var marks = document.querySelectorAll('small.req[data-req]');
+    for (var i = 0; i < marks.length; i++) {
+      marks[i].style.display = req.indexOf(marks[i].getAttribute('data-req')) !== -1 ? '' : 'none';
+    }
+  }
 
   /* ---------- theme (dark mode for outdoor sunlight/shade use) ---------- */
   function applyTheme(dark) {
@@ -216,22 +240,22 @@
       '<div class="chips" id="recentChips"></div>' +
 
       '<div class="card">' +
-        '<label>Reading CKWh <small class="req">*</small></label>' +
+        '<label>Reading CKWh <small class="req" data-req="ckwh" style="display:none">*</small></label>' +
         '<input type="number" id="ckwh" step="0.01" min="0" inputmode="decimal">' +
         '<details><summary>Block readings – B1…B6 kWh (optional)</summary><div class="grid6">' +
           bInputs('bk', 6) + '</div></details>' +
         '<div class="row">' +
-          '<div><label>Reading Pr kW <small class="req">*</small></label>' +
+          '<div><label>Reading Pr kW <small class="req" data-req="prkw" style="display:none">*</small></label>' +
            '<input type="number" id="prk" step="0.01" min="0" inputmode="decimal"></div>' +
-          '<div><label>B1 kW demand <small class="req">*</small></label>' +
-           '<input type="number" id="bw1" step="0.01" min="0" inputmode="decimal" required></div>' +
+          '<div><label>B1 kW demand <small class="req" data-req="b1kw" style="display:none">*</small></label>' +
+           '<input type="number" id="bw1" step="0.01" min="0" inputmode="decimal"></div>' +
         '</div>' +
         '<details><summary>Block demand – B2…B6 kW (optional)</summary><div class="grid6">' +
-          (function(){var s='';for(var i=2;i<=6;i++) s+='<div><label>B'+i+'</label><input type="number" step="0.01" min="0" inputmode="decimal" id="bw'+i+'"></div>';return s;})() + '</div></details>' +
+          (function(){var s='';for(var i=2;i<=6;i++) s+='<div><label>B'+i+' <small class="req" data-req="b'+i+'kw" style="display:none">*</small></label><input type="number" step="0.01" min="0" inputmode="decimal" id="bw'+i+'"></div>';return s;})() + '</div></details>' +
         '<div class="row">' +
-          '<div><label>PF (0–1)</label>' +
+          '<div><label>PF (0–1) <small class="req" data-req="pf" style="display:none">*</small></label>' +
            '<input type="number" id="pf" step="0.01" min="0" max="1" inputmode="decimal"></div>' +
-          '<div><label>Meter status</label>' +
+          '<div><label>Meter status <small class="req" data-req="status" style="display:none">*</small></label>' +
            '<select id="status"></select></div>' +
         '</div>' +
       '</div>' +
@@ -240,6 +264,7 @@
       '<textarea id="remarks" rows="2" maxlength="200"></textarea></div>' +
       '<div class="ver" id="ver"></div>';
 
+    syncReqMarks(); // red * follows the Configuration tab's Required fields
     document.getElementById('rr').addEventListener('input', onRR);
     document.getElementById('acct').addEventListener('input', onRR);
     wireEnterAdvance();
@@ -307,7 +332,8 @@
   function bInputs(pre, n) {
     var s = '';
     for (var i = 1; i <= n; i++)
-      s += '<div><label>B' + i + '</label>' +
+      s += '<div><label>B' + i +
+           ' <small class="req" data-req="b' + i + 'kwh" style="display:none">*</small></label>' +
            '<input type="number" step="0.01" min="0" inputmode="decimal" id="' + pre + i + '"></div>';
     return s;
   }
@@ -470,9 +496,15 @@
     });
     if (Object.keys(config).length) p.config = config;
     if (!p.rr && !p.accountId) return err('Enter RR Number or Account ID');
-    if (p.ckwh === '') return err('CKWh reading is required');
-    if (p.prk === '')  return err('Pr kW reading is required');
-    if (p.bkw[0] === '') return err('B1 kW is required');
+    // mandatory reading fields are configurable (Configuration tab ->
+    // Form Settings -> 'Required fields'); default CKWh + B1 kW
+    var req = FORM_SETTINGS.requiredFields || [];
+    for (var ri = 0; ri < req.length; ri++) {
+      var el = document.getElementById(FIELD_IDS[req[ri]]);
+      if (el && String(el.value).trim() === '') {
+        return err((FIELD_LABELS[req[ri]] || req[ri]) + ' is required');
+      }
+    }
     if (IS_GUEST) {
       var gEl = document.getElementById('guestName');
       if (gEl) p.guestName = gEl.value.trim();

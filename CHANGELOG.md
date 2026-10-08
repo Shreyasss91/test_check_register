@@ -7,6 +7,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Configurable mandatory fields via the Configuration tab**
+  (`apps-script/Code.gs`, `apps-script/Index.html`): which reading fields
+  block Submit is now a team-wide setting — `Required fields: CKWh, B1 kW`
+  in the Configuration tab's Form Settings column (comma-separated canonical
+  keys or field labels, case/punctuation-insensitive; `none` clears all
+  reading requirements). Default is **only CKWh and B1 kW** — Pr kW is no
+  longer mandatory. Server validation (`validatePayload_`) and the form's
+  pre-check share the same parsed list, and the red `*` markers follow it.
+  Unknown tokens are ignored and reported by *Master health check*; a value
+  with no resolvable token falls back to the default so a typo cannot
+  silently drop every requirement. RR/Account-ID "either one" stays
+  structural. Version bumped to v1.15.0.
+
 ### Changed
 
 - **Month tab capacity increased to 2000 rows** (`apps-script/Code.gs`):

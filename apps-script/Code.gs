@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.14.10', // bump on every deploy; shown in the form footer
+  version: 'v1.15.0', // bump on every deploy; shown in the form footer
   prefillRows: 2000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -49,7 +49,26 @@ var CONFIG = {
   formSettingKeyRe: /^\s*([^:]+?)\s*:\s*(.+?)\s*$/, // 'Key: value'
   // known setting keys (lowercase) — parseFormSettings_ honors these;
   // masterHealthCheck flags anything outside this list as a typo
-  formSettingKeys: ['recent chips'],
+  formSettingKeys: ['recent chips', 'required fields'],
+  /* Mandatory reading fields (D29): the 'Required fields' Form Setting line
+     lists which reading fields block Submit — everything else is optional.
+     Value = comma-separated canonical keys OR field labels (case and
+     punctuation ignored), or the word 'none' for no mandatory readings.
+     Default: only CKWh and B1 kW. RR/Account-ID "at least one" is a
+     structural rule and is NOT configurable. Canonical keys are the
+     lowercase keys of requiredFieldLabels; the labels double as the
+     reverse-lookup aliases AND as the error messages. */
+  requiredFieldDefaults: ['ckwh', 'b1kw'],
+  requiredFieldLabels: {
+    ckwh: 'Reading CKWh',
+    b1kwh: 'B1 kWh', b2kwh: 'B2 kWh', b3kwh: 'B3 kWh',
+    b4kwh: 'B4 kWh', b5kwh: 'B5 kWh', b6kwh: 'B6 kWh',
+    prkw: 'Reading Pr kW',
+    b1kw: 'B1 kW demand', b2kw: 'B2 kW', b3kw: 'B3 kW',
+    b4kw: 'B4 kW', b5kw: 'B5 kW', b6kw: 'B6 kW',
+    pf: 'PF',
+    status: 'Meter status'
+  },
 
   masterHeaders: [
     'RR Number', 'Account ID', 'Tariff', 'NAME', 'SANC_KW', 'SANC_HP',
@@ -198,7 +217,7 @@ function dynamicConfigLists_(lists) {
 // only defined setting (integer 0..10, 0 hides the row).
 function parseFormSettings_(lists) {
   var lines = lists[CONFIG.formSettingsHeader] || [];
-  var s = { recentChips: 5 };
+  var s = { recentChips: 5, requiredFields: CONFIG.requiredFieldDefaults.slice() };
   for (var i = 0; i < lines.length; i++) {
     var m = CONFIG.formSettingKeyRe.exec(lines[i]);
     if (!m) continue;
@@ -206,9 +225,44 @@ function parseFormSettings_(lists) {
     if (k === 'recent chips') {
       var n = parseInt(v, 10);
       if (!isNaN(n)) s.recentChips = Math.max(0, Math.min(10, n));
+    } else if (k === 'required fields') {
+      var rf = parseRequiredFields_(v);
+      if (rf) s.requiredFields = rf; // null = all tokens unknown -> keep defaults
     }
   }
   return s;
+}
+
+// 'CKWh' / 'Reading CKWh' / 'b1 kw demand' -> canonical key (or null).
+// Keys and labels are compared through the shared letters/digits-only rule.
+function requiredFieldKey_(token) {
+  var n = normalizeKey_(token);
+  if (!n) return null;
+  if (CONFIG.requiredFieldLabels.hasOwnProperty(n)) return n;
+  var keys = Object.keys(CONFIG.requiredFieldLabels);
+  for (var i = 0; i < keys.length; i++) {
+    if (normalizeKey_(CONFIG.requiredFieldLabels[keys[i]]) === n) return keys[i];
+  }
+  return null;
+}
+
+// parses the 'Required fields' value into canonical keys.
+// 'none' -> [] (no mandatory readings); unknown-only tokens -> null so the
+// caller keeps the defaults instead of silently dropping every requirement
+// (validateFormSettings_ reports the offending tokens either way).
+function parseRequiredFields_(val) {
+  var parts = String(val || '').split(',');
+  var out = [], sawToken = false;
+  for (var i = 0; i < parts.length; i++) {
+    var t = String(parts[i]).trim();
+    if (!t) continue;
+    sawToken = true;
+    if (normalizeKey_(t) === 'none') return [];
+    var key = requiredFieldKey_(t);
+    if (key && out.indexOf(key) === -1) out.push(key);
+  }
+  if (sawToken && !out.length) return null;
+  return out;
 }
 
 // audit the Form Settings column for the consolidator (health check):
@@ -221,8 +275,20 @@ function validateFormSettings_(lists) {
   for (var i = 0; i < lines.length; i++) {
     var m = CONFIG.formSettingKeyRe.exec(lines[i]);
     if (!m) { issues.push('"' + lines[i] + '" - not a Key: value line'); continue; }
-    if (CONFIG.formSettingKeys.indexOf(m[1].toLowerCase()) === -1) {
+    var key = m[1].toLowerCase();
+    if (CONFIG.formSettingKeys.indexOf(key) === -1) {
       issues.push('"' + m[1] + '" - unknown setting key (check spelling / docs D28)');
+      continue;
+    }
+    if (key === 'required fields') {
+      var parts = String(m[2]).split(',');
+      for (var j = 0; j < parts.length; j++) {
+        var t = String(parts[j]).trim();
+        if (!t || normalizeKey_(t) === 'none') continue;
+        if (!requiredFieldKey_(t)) {
+          issues.push('"' + t + '" - unknown required field (see docs D29)');
+        }
+      }
     }
   }
   return issues;
@@ -1571,15 +1637,12 @@ function validatePayload_(ss, p) {
   if (!rrRaw && !acRaw) return { error: 'Enter RR Number or Account ID - at least one is required.' };
 
   var ckwh = num_(p.ckwh);
-  if (ckwh === '') return { error: 'Reading (CKWh) is required.' };
-  if (ckwh < 0) return { error: 'CKWh cannot be negative.' };
+  if (ckwh !== '' && ckwh < 0) return { error: 'CKWh cannot be negative.' };
 
   var prk = num_(p.prk);
-  if (prk === '') return { error: 'Reading (Pr kW) is required.' };
-  if (prk < 0) return { error: 'Pr kW cannot be negative.' };
+  if (prk !== '' && prk < 0) return { error: 'Pr kW cannot be negative.' };
 
   var b = arr6_(p.blocksKwh), bw = arr6_(p.bkw);
-  if (bw[0] === '') return { error: 'B1 kW (block demand) is required.' };
   for (var i = 0; i < 6; i++) {
     if (b[i] !== '' && b[i] < 0) return { error: 'B' + (i + 1) + ' kWh cannot be negative.' };
     if (bw[i] !== '' && bw[i] < 0) return { error: 'B' + (i + 1) + ' kW cannot be negative.' };
@@ -1599,6 +1662,22 @@ function validatePayload_(ss, p) {
   var statusList = lists[CONFIG.meterStatusHeader];
   if (status && statusList.indexOf(status) === -1) {
     return { error: 'Unknown meter status "' + status + '".' };
+  }
+
+  // mandatory reading fields (D29): configurable via the Configuration tab's
+  // Form Settings ('Required fields'); default CKWh + B1 kW. The RR/Account-ID
+  // "at least one" rule above is structural and NOT configurable.
+  var required = parseFormSettings_(lists).requiredFields;
+  var have = {
+    ckwh: ckwh, prkw: prk, pf: pf, status: status,
+    b1kwh: b[0], b2kwh: b[1], b3kwh: b[2], b4kwh: b[3], b5kwh: b[4], b6kwh: b[5],
+    b1kw: bw[0], b2kw: bw[1], b3kw: bw[2], b4kw: bw[3], b5kw: bw[4], b6kw: bw[5]
+  };
+  for (var q = 0; q < required.length; q++) {
+    var hv = have[required[q]];
+    if (hv === '' || hv === null || hv === undefined) {
+      return { error: CONFIG.requiredFieldLabels[required[q]] + ' is required.' };
+    }
   }
 
   // extra config dropdowns (Configuration columns beyond Meter Status):

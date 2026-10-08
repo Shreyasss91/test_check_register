@@ -102,6 +102,12 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
     To add a whole new dropdown (e.g. Seal Type), add a new column; the
     form picks it up on the next load. The tab is protected — edit as the
     consolidator (temporary protection warning to others is expected).
+    Column B is `Form Settings` — `Key: value` lines that tune the form
+    (not a dropdown list): `Recent chips: N` and `Required fields: CKWh,
+    B1 kW`. `Required fields` lists which reading fields block Submit
+    (comma-separated keys or field labels; `none` = no reading
+    requirements); the default is only CKWh and B1 kW. Unknown keys or
+    field tokens are ignored and reported by *Master health check*.
 
 ## E. Deploy the web app
 
