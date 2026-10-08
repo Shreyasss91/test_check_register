@@ -42,7 +42,7 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 | `Team` | Inspectors: Email + Name (login → identity) |
 | `Guests` | Auto-filled log of form users **not** in Team: Email, typed Name, First/Last Seen, Submissions — your pending-approvals list |
 | `Configuration` | All dropdown lists — one **column** per list (header = name, values below). `Meter Status` (col A) drives the status dropdown; every other column auto-becomes an extra dropdown in the form + a dynamic month-tab column. Exceptions — settings columns, **not** lists: `Form Settings` (col B) and the `Form Field` / `Optional / Compulsory` mandatory-field table |
-| `YYYY-MM` | One per month; 1 000 rows ready; ⚠ Checks column flags issues |
+| `YYYY-MM` | One per month; 2 000 rows ready; ⚠ Checks column flags issues |
 | `Consolidated` | All months stacked live, newest first |
 | `Analytics` | Live pivots: entries per inspector/month/status, non-OK meters, feeder/DTC coverage + one pivot per Configuration list |
 | `_Keys` | Hidden auto-generated helper: normalized RR keys (letters/digits only) for case/space/punctuation-insensitive checks — do not edit |

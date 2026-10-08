@@ -31,6 +31,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Deploy troubleshooting for a mangled `Index` paste + row-count doc
+  corrections** (`docs/deployment.md`, `README.md`,
+  `docs/requirements.md`): the troubleshooting table now covers the page
+  rendering raw JavaScript below "Loading…" — the signature of a truncated
+  `Index` HTML file whose `<script>` block closed early — with the checks
+  (must end with `</html>`, exactly one `<script>`/`</script>`), the
+  re-paste / new-version / hard-reload fix, and the expected file size.
+  Month-tab row references corrected from 1,000 to 2,000 to match
+  `CONFIG.prefillRows` (D8 annotated as raised in v1.14.9). No behavior
+  change.
+
 - **Docs aligned with the mandatory-field table** (`README.md`,
   `docs/requirements.md`, `apps-script/Index.html`): the README
   `Configuration` row now lists the settings columns that are NOT dropdown

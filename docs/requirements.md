@@ -67,7 +67,7 @@ sheet") **or automatically** by the first submission of that month (same
 template either way, so formulas never drift). At month end "Close month"
 locks the tab read-only and the consolidator downloads an XLSX backup as
 archive (an unlock option exists for corrections). Each month tab ships with
-1,000 pre-filled formula rows (expected volume < 1,000 entries/month).
+2,000 pre-filled formula rows (expected volume < 1,000 entries/month).
 No per-person tabs anymore.
 
 ## 5. Data captured per inspection (one row)
@@ -204,7 +204,7 @@ format keeps later pivots easy (Entered By, RR Number, month). One live
 | D5 | Edits to old rows allowed | simplest correction flow; audit via version history |
 | D6 | Personal Gmail accounts | no Workspace available |
 | D7 | Start fresh, no migration | avoids back-entry effort |
-| D8 | Volume < 1,000 entries/month → 1,000 pre-filled rows per month tab | performance headroom |
+| D8 | Volume < 1,000 entries/month → pre-filled rows per month tab (1,000 originally; raised to 2,000 in v1.14.9) | performance headroom |
 | D9 | Month tabs named `YYYY-MM` (e.g. `2026-08`) | sorts chronologically |
 | D10 | Block-sum vs total tolerance = ±1 kWh, flag only | agreed domain tolerance |
 | D11 | New month tab via Apps Script menu button | identical formulas every month, no drift |
