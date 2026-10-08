@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.16.0', // bump on every deploy; shown in the form footer
+  version: 'v1.16.1', // bump on every deploy; shown in the form footer
   prefillRows: 2000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -140,18 +140,27 @@ var MONTH_RE = /^\d{4}-\d{2}$/;
    - Append-only: renaming/removing a Configuration column never deletes
      month-tab data (the orphan column is left as-is). */
 
-// builds the Configuration tab with the current status list (setup only)
+/* Builds the Configuration tab on a new workbook, or fills in whatever is
+   missing on an existing one IN PLACE — same rule as buildMaster_: rerunning
+   setupWorkbook must never wipe consolidator edits (custom Meter Status
+   values, extra dropdown lists, Form Settings, the D29 field table). */
 function buildConfiguration_(ss) {
-  var sh = resetSheet_(ss, 'Configuration');
+  var sh = ss.getSheetByName('Configuration');
+  if (!sh) sh = ss.insertSheet('Configuration');
   applyConfigSheet_(ss, sh);
   return sh;
 }
 
-// shared body used by both buildConfiguration_ and ensureConfiguration_
+// shared body used by both buildConfiguration_ and ensureConfiguration_.
+// Every seeding step is "only when absent" so it is safe to rerun.
 function applyConfigSheet_(ss, sh) {
-  sh.getRange('A1').setValue(CONFIG.meterStatusHeader);
-  sh.getRange(2, 1, CONFIG.defaultMeterStatuses.length, 1).setValues(
-    CONFIG.defaultMeterStatuses.map(function (s) { return [s]; }));
+  // column A: Meter Status. Seed the header + default list ONLY when the
+  // header cell is empty — a populated tab keeps its customized statuses.
+  if (String(sh.getRange('A1').getDisplayValue() || '').trim() === '') {
+    sh.getRange('A1').setValue(CONFIG.meterStatusHeader);
+    sh.getRange(2, 1, CONFIG.defaultMeterStatuses.length, 1).setValues(
+      CONFIG.defaultMeterStatuses.map(function (s) { return [s]; }));
+  }
   styleHeader_(sh, 10); // style ahead so future column headers match
   sh.setFrozenRows(1);
   sh.getRange(1, 1, CONFIG.maxConfigValues, 26).setNumberFormat('@');

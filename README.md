@@ -132,7 +132,9 @@ refreshed automatically.
   Numbers, duplicate Account IDs, blank compulsory fields and leftover
   RR-SAMPLE rows. *Sync guest names from Team* renames guest rows after
   you add people to Team.
-- **After editing `Configuration`:** nothing needed for value edits. After
+- **After editing `Configuration`:** nothing needed for value edits, and
+  rerunning `setupWorkbook` is safe — it only adds what is missing here and
+  never overwrites your statuses, lists or settings. After
   adding a new list column: *Meter Register > Apply configuration changes
   (all months)* adds the new column to every month tab immediately and
   rebuilds Consolidated/Analytics (they also self-heal on the next

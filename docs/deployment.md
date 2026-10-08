@@ -109,8 +109,10 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
     (default: only CKWh and B1 kW). Both are settings columns, not dropdown
     lists — they never become month-tab columns. On an existing workbook run
     *Meter Register > Apply configuration changes (all months)* once to add
-    the table (`setupWorkbook` seeds it on a fresh workbook). Unknown field
-    names or flags are reported by *Master health check*.
+    the table — or just rerun `setupWorkbook`, which fills in whatever is
+    missing on this tab (missing statuses, Form Settings, the field table)
+    **without** overwriting anything already there. Unknown field names or
+    flags are reported by *Master health check*.
 
 ## E. Deploy the web app
 

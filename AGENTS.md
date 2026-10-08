@@ -47,6 +47,10 @@ Apps Script editor).
   (PropertiesService).
 - **`buildMaster_` migrates in place** when Master has data (never
   wipe); throws on unmapped custom columns instead of dropping them.
+  **`buildConfiguration_` likewise fills missing pieces in place and never
+  deletes the tab** — a `setupWorkbook` re-run must preserve customized
+  Meter Status values, extra dropdown lists, Form Settings and the D29
+  field table.
 - **Month tab fixed layout**: cols A..AI (1..35) + dynamic config cols
   from 36 (AJ). The Consolidated QUERY stacks brace blocks of equal
   width — dynamic columns must be appended in lockstep on every tab or

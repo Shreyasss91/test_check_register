@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`setupWorkbook` no longer wipes the Configuration tab**
+  (`apps-script/Code.gs`): `buildConfiguration_` recreated the tab from
+  scratch on every run (`resetSheet_`), silently destroying customized
+  Meter Status values, extra dropdown lists, Form Settings and the D29
+  field table. It now reuses the existing tab and only fills in what is
+  missing — matching `buildMaster_`'s in-place rule. The Meter Status
+  header + default list are seeded only when column A is empty, and a
+  fresh/empty tab is still fully seeded. Verified: a re-run leaves every
+  consolidator edit intact and never deletes the tab. Version bumped to
+  v1.16.1.
+
 ### Added
 
 - **Configurable mandatory fields via a Configuration-tab table**

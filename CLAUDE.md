@@ -28,6 +28,8 @@ touching anything. The summary that matters most:
   swaps (same row count) need `invalidateMeterIndex_()`.
 - **`buildMaster_` migrates in place** when Master has data (never wipe);
   throws on unmapped custom columns instead of dropping them.
+  `buildConfiguration_` likewise fills missing pieces in place (never
+  deletes the tab) — setupWorkbook re-runs keep consolidator edits.
 - **Month tab fixed layout** cols A..AI + dynamic config cols from AJ;
   Consolidated QUERY stacks brace blocks of equal width — dynamic
   columns must be appended in lockstep on every tab.
