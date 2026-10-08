@@ -59,12 +59,12 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
   column (AJ..) on every month tab — created on the first submit, or
   right away via menu *Meter Register > Apply configuration changes
   (all months)*. Consolidated and Analytics pick the column up too.
-- **Mandatory fields:** edit the `Form Settings` column B —
-  `Required fields:` takes a comma-separated list of field keys or labels
-  (e.g. `Required fields: CKWh, B1 kW, PF`). The default is only CKWh and
-  B1 kW; `none` makes every reading optional. The red `*` in the form
-  follows your list. `Recent chips: N` (0–10) sets how many recent meters
-  show as chips.
+- **Mandatory fields:** the `Form Field` / `Optional / Compulsory`
+  columns list every reading field; set each to **Compulsory** or
+  **Optional** from the dropdown. By default only CKWh and B1 kW are
+  Compulsory. The red `*` in the form follows your table.
+- **Other form settings:** the `Form Settings` column (`Recent chips: N`,
+  0–10) sets how many recent meters show as chips.
 - Append-only: removing a list never deletes its stored data column.
 
 ## Guests (people not in Team yet)

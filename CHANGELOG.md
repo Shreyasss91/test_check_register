@@ -9,18 +9,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **Configurable mandatory fields via the Configuration tab**
+- **Configurable mandatory fields via a Configuration-tab table**
   (`apps-script/Code.gs`, `apps-script/Index.html`): which reading fields
-  block Submit is now a team-wide setting — `Required fields: CKWh, B1 kW`
-  in the Configuration tab's Form Settings column (comma-separated canonical
-  keys or field labels, case/punctuation-insensitive; `none` clears all
-  reading requirements). Default is **only CKWh and B1 kW** — Pr kW is no
-  longer mandatory. Server validation (`validatePayload_`) and the form's
-  pre-check share the same parsed list, and the red `*` markers follow it.
-  Unknown tokens are ignored and reported by *Master health check*; a value
-  with no resolvable token falls back to the default so a typo cannot
-  silently drop every requirement. RR/Account-ID "either one" stays
-  structural. Version bumped to v1.15.0.
+  block Submit is now a team-wide table — two reserved Configuration
+  columns, **`Form Field`** and **`Optional / Compulsory`**, one row per
+  reading field (CKWh, B1…B6 kWh, Pr kW, B1…B6 kW, PF, Meter status).
+  Default is **only CKWh and B1 kW Compulsory** — Pr kW is no longer
+  mandatory. The columns are settings columns, not dropdown lists:
+  `readConfigLists_`/`dynamicConfigLists_` skip them so they never reach a
+  month tab, Consolidated/Analytics or the web form. The table is located
+  by header name (so it can be moved) and seeded beside Form Settings —
+  appended after the last list column if C/D already hold a dynamic list,
+  so one is never overwritten. Server validation (`validatePayload_`) and
+  the form's pre-check share the shipped list, and the red `*` markers
+  follow it. Unknown field names/flags are reported by *Master health
+  check*; a table with no recognizable field row falls back to the default
+  so a typo cannot silently drop every requirement. RR/Account-ID "either
+  one" stays structural. Existing workbooks: run *Meter Register > Apply
+  configuration changes (all months)* once to add the table. Version
+  bumped to v1.16.0.
 
 ### Changed
 

@@ -103,11 +103,14 @@ Applies to spec v2.0 (`requirements.md`). One-time setup by the
     form picks it up on the next load. The tab is protected — edit as the
     consolidator (temporary protection warning to others is expected).
     Column B is `Form Settings` — `Key: value` lines that tune the form
-    (not a dropdown list): `Recent chips: N` and `Required fields: CKWh,
-    B1 kW`. `Required fields` lists which reading fields block Submit
-    (comma-separated keys or field labels; `none` = no reading
-    requirements); the default is only CKWh and B1 kW. Unknown keys or
-    field tokens are ignored and reported by *Master health check*.
+    (not a dropdown list): `Recent chips: N`. The next two columns,
+    `Form Field` and `Optional / Compulsory`, are the mandatory-field
+    table: one row per reading field, set each to Compulsory or Optional
+    (default: only CKWh and B1 kW). Both are settings columns, not dropdown
+    lists — they never become month-tab columns. On an existing workbook run
+    *Meter Register > Apply configuration changes (all months)* once to add
+    the table (`setupWorkbook` seeds it on a fresh workbook). Unknown field
+    names or flags are reported by *Master health check*.
 
 ## E. Deploy the web app
 

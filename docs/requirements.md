@@ -93,10 +93,11 @@ No per-person tabs anymore.
 | Month | **auto** | derived from Date |
 | ⚠ Checks | **auto** | inline validation flags (see §6) |
 
-Which reading fields are mandatory is set by the `Required fields` Form
-Setting (D29) — by default only Reading (CKWh) and B1 kW. PF, Meter Status
-and every B-block can be made mandatory (or CKWh/B1 kW made optional) from
-the Configuration tab, with no code change.
+Which reading fields are mandatory is set by the **Form Field /**
+**Optional / Compulsory** table in the Configuration tab (D29) — by default
+only Reading (CKWh) and B1 kW are Compulsory. PF, Meter Status and every
+B-block can be flipped between Optional and Compulsory from the sheet, with
+no code change.
 
 Display conventions: readings 2 decimals (`#,##0.00`), PF 2 decimals.
 
@@ -117,9 +118,9 @@ Hard-blocked (input rejected):
 2. PF must be between 0 and 1.
 3. Meter Status and any config-dropdown value must exist in its
    `Configuration` list (rejected as "Unknown … value" otherwise).
-4. Every reading field listed in `Required fields` (default `CKWh, B1 kW`)
-   must be filled; `none` clears all reading requirements. RR/Account-ID
-   "either one" is structural and not configurable. See D29.
+4. Every reading field whose table row says **Compulsory** (default CKWh
+   and B1 kW) must be filled; a row set to Optional clears the requirement.
+   RR/Account-ID "either one" is structural and not configurable. See D29.
 
 Flagged inline (⚠ column, entry still accepted):
 
@@ -224,14 +225,13 @@ format keeps later pivots easy (Entered By, RR Number, month). One live
 | D26 | Master carries the utility-registry reference block (Tariff, SANC_KW, SANC_HP, CONT_DEM, DOS, STATUS + renamed MR ID / MR DAY / METER CONSTANT / METER_SERIAL_NO) in the export column order; shown in the form's meter card; migrating an existing populated Master re-maps columns in place instead of wiping | inspectors see sanction/demand/status context at the spot; existing workbooks keep their meter data on upgrade |
 | D27 | Master scales to 30,000 meters; the form never downloads Master — meter resolution is a server-side lookup against a cache-sharded key index (RR/Account-ID → row), rebuilt automatically when Master's row count changes; submit validation and spot-drift checks use the same index; a per-session client cache memoizes resolved meters | O(1) lookups and small payloads at any Master size; no false "Unknown RR" from a read cap; one rebuild path to maintain. Constraints enforced for any future change: see [`CLAUDE.md`](../CLAUDE.md) and [`AGENTS.md`](../AGENTS.md). |
 | D28 | Recent meters appear as tappable chips between the meter and readings cards; the count is a team-wide setting, `Recent chips: N` (0–10, 0 hides) in the Configuration tab's **Form Settings** column — a settings column, not a dropdown list. The column is parsed server-side (`parseFormSettings_`) into the bootstrap; unknown keys and malformed lines are ignored; guests are capped at 2 chips (device-local history on possibly shared devices). The **settings registry** below is the authoritative key list | zero-code form tuning from the sheet; one documented place to add the next setting |
-| D29 | Which reading fields are mandatory is a team-wide setting, `Required fields: …` in the Configuration tab's **Form Settings** column: a comma-separated list of field keys or labels (`CKWh`, `B1 kW demand`, `PF`, `Meter status`, `B1 kWh` … `B6 kW`), case- and punctuation-insensitive; `none` clears all reading requirements. Default `CKWh, B1 kW`. The server (`validatePayload_`) and the form's pre-check share the same parsed list shipped in the bootstrap; the red `*` markers follow it. Unknown tokens are ignored and reported by the health check; a value with NO resolvable token falls back to the default (a typo must not silently drop every requirement). RR/Account-ID "either one" stays structural | verdicts and meter sets differ per subdivision — forcing Pr kW / block readings where the meter or MD is absent produced bad data or blocked the spot visit |
+| D29 | Which reading fields are mandatory is a team-wide table in the Configuration tab: two reserved columns headed **Form Field** and **Optional / Compulsory**, one row per reading field (CKWh, B1…B6 kWh, Pr kW, B1…B6 kW, PF, Meter status). They are settings columns, NOT dropdown lists — `readConfigLists_`/`dynamicConfigLists_` skip them by header so they never reach a month tab, Consolidated/Analytics or the web form. Default: only CKWh and B1 kW are Compulsory. The server (`validatePayload_`) and the form's pre-check share the parsed list shipped in the bootstrap; the red `*` markers follow it. The table is located by header name (so it can be moved) and seeded by `ensureRequiredFieldTable_` beside Form Settings — appended after the last list column if C/D are taken, so a dynamic list is never overwritten. Unknown field names and bad flags are reported by *Master health check*; a table with no recognizable field row falls back to the default so a typo cannot silently drop every requirement. RR/Account-ID "either one" stays structural | verdicts and meter sets differ per subdivision — forcing Pr kW / block readings where the meter or MD is absent produced bad data or blocked the spot visit |
 
 ### Form Settings registry (D28)
 
 | Key | Values | Effect |
 |---|---|---|
 | `Recent chips` | integer 0–10, default `5` | How many recent meters show as chips (0 hides the row). Guests capped at 2 |
-| `Required fields` | comma-separated field keys/labels, or `none`; default `CKWh, B1 kW` | Which reading fields block Submit. The form's red `*` markers follow this. Unknown tokens are ignored and flagged by *Master health check* |
 
 ## 12. Open questions
 

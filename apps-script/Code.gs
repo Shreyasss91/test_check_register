@@ -25,7 +25,7 @@
  */
 
 var CONFIG = {
-  version: 'v1.15.0', // bump on every deploy; shown in the form footer
+  version: 'v1.16.0', // bump on every deploy; shown in the form footer
   prefillRows: 2000,
   maxMasterRows: 30000, // Master can grow to 30k meters; form resolves via server lookup
   maxTeamRows: 200,
@@ -49,15 +49,23 @@ var CONFIG = {
   formSettingKeyRe: /^\s*([^:]+?)\s*:\s*(.+?)\s*$/, // 'Key: value'
   // known setting keys (lowercase) — parseFormSettings_ honors these;
   // masterHealthCheck flags anything outside this list as a typo
-  formSettingKeys: ['recent chips', 'required fields'],
-  /* Mandatory reading fields (D29): the 'Required fields' Form Setting line
-     lists which reading fields block Submit — everything else is optional.
-     Value = comma-separated canonical keys OR field labels (case and
-     punctuation ignored), or the word 'none' for no mandatory readings.
-     Default: only CKWh and B1 kW. RR/Account-ID "at least one" is a
-     structural rule and is NOT configurable. Canonical keys are the
-     lowercase keys of requiredFieldLabels; the labels double as the
-     reverse-lookup aliases AND as the error messages. */
+  formSettingKeys: ['recent chips'],
+  /* Required/optional field table (D29): two reserved Configuration columns
+     beside Form Settings — the first names the field, the second says
+     Optional or Compulsory. They are NOT dropdown lists: readConfigLists_
+     and dynamicConfigLists_ skip them by header, so they never reach a month
+     tab, Consolidated, Analytics or the web form. The table is the single
+     control point for which reading fields block Submit; default: only CKWh
+     and B1 kW are Compulsory. RR/Account-ID "at least one" is structural and
+     NOT configurable. Canonical keys are the lowercase keys of
+     requiredFieldLabels; the labels are the table's field names, the
+     reverse-lookup aliases AND the error messages. */
+  requiredFieldsHeader: 'Form Field',
+  requiredFlagsHeader: 'Optional / Compulsory',
+  requiredFlagValue: 'Compulsory',
+  optionalFlagValue: 'Optional',
+  // words accepted in the flag column (normalized); anything else = optional
+  requiredFlagWords: ['compulsory', 'required', 'mandatory', 'yes', 'true', '1'],
   requiredFieldDefaults: ['ckwh', 'b1kw'],
   requiredFieldLabels: {
     ckwh: 'Reading CKWh',
@@ -155,17 +163,90 @@ function applyConfigSheet_(ss, sh) {
     sh.getRange(2, 2, CONFIG.formSettingDefaults.length, 1)
       .setValues(CONFIG.formSettingDefaults.map(function (s) { return [s]; }));
   }
+  ensureRequiredFieldTable_(ss, sh); // D29 required/optional field table
   if (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) {
     protectStrict_(sh.protect(), 'Configuration - consolidator only');
   }
 }
 
 // returns the existing Configuration tab, creating it (seeded) if missing -
-// keeps old deployments working on first call
+// keeps old deployments working on first call. Existing tabs get the D29
+// field table if they predate it (idempotent, never overwrites a list column)
 function ensureConfiguration_(ss) {
   var sh = ss.getSheetByName('Configuration');
   if (!sh) sh = buildConfiguration_(ss);
+  else ensureRequiredFieldTable_(ss, sh);
   return sh;
+}
+
+/* ------- required/optional field table (D29) -------
+   Locates the reserved pair by HEADER NAME (not position) so a consolidator
+   may move the columns; returns { name, flag } 1-based column numbers or
+   null. */
+function requiredTableCols_(sh) {
+  var lastCol = sh.getLastColumn();
+  if (lastCol < 1) return null;
+  var headers = sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
+  var name = -1, flag = -1;
+  for (var i = 0; i < headers.length; i++) {
+    var h = String(headers[i] || '').trim();
+    if (h === CONFIG.requiredFieldsHeader) name = i + 1;
+    else if (h === CONFIG.requiredFlagsHeader) flag = i + 1;
+  }
+  return (name > 0 && flag > 0) ? { name: name, flag: flag } : null;
+}
+
+// seeds the D29 table when absent. Placed in columns C/D when they are free,
+// otherwise appended after the last used column so it never overwrites a
+// dynamic dropdown list. Returns true when it created the table.
+function ensureRequiredFieldTable_(ss, sh) {
+  if (requiredTableCols_(sh)) return false;
+  var nameCol = 3, flagCol = 4;
+  var lastCol = sh.getLastColumn();
+  if (lastCol >= 3 && String(sh.getRange(1, 3).getDisplayValue() || '').trim() !== '') {
+    nameCol = lastCol + 1; flagCol = lastCol + 2;
+  } else if (lastCol >= 4 && String(sh.getRange(1, 4).getDisplayValue() || '').trim() !== '') {
+    nameCol = lastCol + 1; flagCol = lastCol + 2;
+  }
+  sh.getRange(1, nameCol, 1, 2).setValues([[CONFIG.requiredFieldsHeader, CONFIG.requiredFlagsHeader]]);
+  var keys = Object.keys(CONFIG.requiredFieldLabels);
+  var rows = keys.map(function (k) {
+    return [CONFIG.requiredFieldLabels[k],
+      CONFIG.requiredFieldDefaults.indexOf(k) !== -1 ? CONFIG.requiredFlagValue : CONFIG.optionalFlagValue];
+  });
+  sh.getRange(2, nameCol, rows.length, 2).setValues(rows);
+  sh.setColumnWidth(nameCol, 160);
+  sh.setColumnWidth(flagCol, 180);
+  sh.getRange(2, flagCol, rows.length, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList([CONFIG.optionalFlagValue, CONFIG.requiredFlagValue], true)
+      .build());
+  return true;
+}
+
+// reads the D29 table -> canonical required-field keys. A table with no
+// recognizable field rows (or a tab without the table yet) falls back to the
+// built-in default so a typo can never silently drop every requirement.
+function readRequiredFields_(ss) {
+  var sh = ss.getSheetByName('Configuration');
+  var loc = sh ? requiredTableCols_(sh) : null;
+  if (!loc || sh.getLastRow() < 2) return CONFIG.requiredFieldDefaults.slice();
+  var last = sh.getLastRow() - 1;
+  var names = sh.getRange(2, loc.name, last, 1).getDisplayValues();
+  var flags = sh.getRange(2, loc.flag, last, 1).getDisplayValues();
+  var out = [], seen = {}, anyRow = false;
+  for (var i = 0; i < names.length; i++) {
+    var key = requiredFieldKey_(names[i][0]);
+    if (!key || seen[key]) continue;
+    seen[key] = true; anyRow = true;
+    if (isRequiredFlag_(flags[i][0])) out.push(key);
+  }
+  return anyRow ? out : CONFIG.requiredFieldDefaults.slice();
+}
+
+// 'Compulsory' / 'Required' / 'yes' -> true; Optional / blank / typo -> false
+function isRequiredFlag_(flag) {
+  return CONFIG.requiredFlagWords.indexOf(normalizeKey_(flag)) !== -1;
 }
 
 /* reads every populated column of the Configuration tab:
@@ -182,6 +263,8 @@ function readConfigLists_(ss) {
       for (var c = 0; c < lastCol; c++) {
         var header = String(vals[0][c] || '').trim();
         if (!header) continue;
+        // D29 reserved settings columns: not dropdown lists
+        if (header === CONFIG.requiredFieldsHeader || header === CONFIG.requiredFlagsHeader) continue;
         var list = [];
         for (var r = 1; r < vals.length; r++) {
           var v = String(vals[r][c] || '').trim();
@@ -205,7 +288,8 @@ function readConfigLists_(ss) {
 function dynamicConfigLists_(lists) {
   var out = [];
   Object.keys(lists).forEach(function (h) {
-    if (h !== CONFIG.meterStatusHeader && h !== CONFIG.formSettingsHeader) {
+    if (h !== CONFIG.meterStatusHeader && h !== CONFIG.formSettingsHeader &&
+        h !== CONFIG.requiredFieldsHeader && h !== CONFIG.requiredFlagsHeader) {
       out.push({ header: h, values: lists[h] });
     }
   });
@@ -217,7 +301,7 @@ function dynamicConfigLists_(lists) {
 // only defined setting (integer 0..10, 0 hides the row).
 function parseFormSettings_(lists) {
   var lines = lists[CONFIG.formSettingsHeader] || [];
-  var s = { recentChips: 5, requiredFields: CONFIG.requiredFieldDefaults.slice() };
+  var s = { recentChips: 5 };
   for (var i = 0; i < lines.length; i++) {
     var m = CONFIG.formSettingKeyRe.exec(lines[i]);
     if (!m) continue;
@@ -225,9 +309,6 @@ function parseFormSettings_(lists) {
     if (k === 'recent chips') {
       var n = parseInt(v, 10);
       if (!isNaN(n)) s.recentChips = Math.max(0, Math.min(10, n));
-    } else if (k === 'required fields') {
-      var rf = parseRequiredFields_(v);
-      if (rf) s.requiredFields = rf; // null = all tokens unknown -> keep defaults
     }
   }
   return s;
@@ -246,23 +327,31 @@ function requiredFieldKey_(token) {
   return null;
 }
 
-// parses the 'Required fields' value into canonical keys.
-// 'none' -> [] (no mandatory readings); unknown-only tokens -> null so the
-// caller keeps the defaults instead of silently dropping every requirement
-// (validateFormSettings_ reports the offending tokens either way).
-function parseRequiredFields_(val) {
-  var parts = String(val || '').split(',');
-  var out = [], sawToken = false;
-  for (var i = 0; i < parts.length; i++) {
-    var t = String(parts[i]).trim();
-    if (!t) continue;
-    sawToken = true;
-    if (normalizeKey_(t) === 'none') return [];
-    var key = requiredFieldKey_(t);
-    if (key && out.indexOf(key) === -1) out.push(key);
+// audit the D29 field table (health check): unknown field names, duplicate
+// rows and flags that are neither Optional nor Compulsory mean a field is
+// silently unconfigured.
+function validateRequiredFieldTable_(ss) {
+  var issues = [];
+  var sh = ss.getSheetByName('Configuration');
+  var loc = sh ? requiredTableCols_(sh) : null;
+  if (!loc || sh.getLastRow() < 2) return issues;
+  var last = sh.getLastRow() - 1;
+  var names = sh.getRange(2, loc.name, last, 1).getDisplayValues();
+  var flags = sh.getRange(2, loc.flag, last, 1).getDisplayValues();
+  var seen = {};
+  for (var i = 0; i < names.length; i++) {
+    var raw = String(names[i][0] || '').trim();
+    if (!raw) continue;
+    var key = requiredFieldKey_(raw);
+    if (!key) { issues.push('"' + raw + '" - unknown field name (see docs D29)'); continue; }
+    if (seen[key]) { issues.push('"' + raw + '" - listed more than once'); continue; }
+    seen[key] = true;
+    var f = String(flags[i][0] || '').trim();
+    if (f && !isRequiredFlag_(f) && normalizeKey_(f) !== normalizeKey_(CONFIG.optionalFlagValue)) {
+      issues.push('"' + raw + '" - "' + f + '" is neither Optional nor Compulsory (treated as Optional)');
+    }
   }
-  if (sawToken && !out.length) return null;
-  return out;
+  return issues;
 }
 
 // audit the Form Settings column for the consolidator (health check):
@@ -275,20 +364,8 @@ function validateFormSettings_(lists) {
   for (var i = 0; i < lines.length; i++) {
     var m = CONFIG.formSettingKeyRe.exec(lines[i]);
     if (!m) { issues.push('"' + lines[i] + '" - not a Key: value line'); continue; }
-    var key = m[1].toLowerCase();
-    if (CONFIG.formSettingKeys.indexOf(key) === -1) {
+    if (CONFIG.formSettingKeys.indexOf(m[1].toLowerCase()) === -1) {
       issues.push('"' + m[1] + '" - unknown setting key (check spelling / docs D28)');
-      continue;
-    }
-    if (key === 'required fields') {
-      var parts = String(m[2]).split(',');
-      for (var j = 0; j < parts.length; j++) {
-        var t = String(parts[j]).trim();
-        if (!t || normalizeKey_(t) === 'none') continue;
-        if (!requiredFieldKey_(t)) {
-          issues.push('"' + t + '" - unknown required field (see docs D29)');
-        }
-      }
     }
   }
   return issues;
@@ -1024,9 +1101,16 @@ function masterHealthCheck() {
     lines.push('FORM SETTINGS issues (Configuration tab, column B) - these lines do nothing:');
     fsIssues.forEach(function (d) { lines.push('  • ' + d); });
   }
+  // D29 field table audit: unknown/duplicate field names, bad flags
+  var rfIssues = validateRequiredFieldTable_(ss);
+  if (rfIssues.length) {
+    lines.push('');
+    lines.push('FORM FIELD table issues (Configuration tab) - these rows do nothing:');
+    rfIssues.forEach(function (d) { lines.push('  • ' + d); });
+  }
 
   var masterClean = !dupRR.length && !dupAcc.length && !blanks.length && !sampleRows;
-  if (masterClean && !fsIssues.length) {
+  if (masterClean && !fsIssues.length && !rfIssues.length) {
     lines.push('');
     lines.push('No problems found — Master is clean. ✓');
   } else if (!masterClean) {
@@ -1489,6 +1573,9 @@ function getBootstrap() {
     // meters are NOT shipped to the browser anymore — the form resolves
     // them one-by-one via lookupMeter (Master can hold 30k rows)
     var lists = readConfigLists_(ss);
+    var settings = parseFormSettings_(lists);
+    // mandatory reading fields come from the D29 field table, not Form Settings
+    settings.requiredFields = readRequiredFields_(ss);
     return {
       ok: true,
       user: user,
@@ -1496,7 +1583,7 @@ function getBootstrap() {
       currentMonth: Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM'),
       meterStatuses: lists[CONFIG.meterStatusHeader],
       configLists: lists,
-      formSettings: parseFormSettings_(lists)
+      formSettings: settings
     };
   } catch (err) {
     return { ok: false, reason: String(err && err.message || err) };
@@ -1664,10 +1751,10 @@ function validatePayload_(ss, p) {
     return { error: 'Unknown meter status "' + status + '".' };
   }
 
-  // mandatory reading fields (D29): configurable via the Configuration tab's
-  // Form Settings ('Required fields'); default CKWh + B1 kW. The RR/Account-ID
+  // mandatory reading fields (D29): the Configuration tab's Form Field /
+  // Optional / Compulsory table; default CKWh + B1 kW. The RR/Account-ID
   // "at least one" rule above is structural and NOT configurable.
-  var required = parseFormSettings_(lists).requiredFields;
+  var required = readRequiredFields_(ss);
   var have = {
     ckwh: ckwh, prkw: prk, pf: pf, status: status,
     b1kwh: b[0], b2kwh: b[1], b3kwh: b[2], b4kwh: b[3], b5kwh: b[4], b6kwh: b[5],
