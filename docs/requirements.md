@@ -83,7 +83,7 @@ No per-person tabs anymore.
 | Reading (Pr kW) | manual | present demand; optional by default |
 | B1 kW | manual | block demand; mandatory by default (see D29) |
 | B2–B6 kW | optional | per-block demand where applicable |
-| PF | manual | optional unless listed in `Required fields` (D29) |
+| PF | manual | optional unless its table row is Compulsory (D29) |
 | Meter Status | dropdown | values live in the `Configuration` tab (col A; seeded OK / MNR / Meter burnt / Link burnt / No display / Not accessible / Others). First value in the column = default. Edit/add values in the sheet — the form and month-tab dropdowns pick them up without any code change |
 | Config dropdowns (extra) | dropdown | every `Configuration` column beyond Meter Status renders as an extra optional dropdown in the form; the chosen value is stored in a dynamic month-tab column (36+ / AJ..) and flows into Consolidated/Analytics |
 | Remarks | optional | |

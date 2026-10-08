@@ -41,7 +41,7 @@ Consolidator ──(Sheet directly)──▶ Master · Team · close months · e
 | `Master` | Meter list (up to ~30,000 rows). Exact 20-column order: RR Number, Account ID, Tariff, NAME, SANC_KW, SANC_HP, CONT_DEM, DOS, STATUS, MR ID, MR DAY, SF, METER CONSTANT, METER_SERIAL_NO, Meter Make, Phases, DTC, Feeder, Location, Notes |
 | `Team` | Inspectors: Email + Name (login → identity) |
 | `Guests` | Auto-filled log of form users **not** in Team: Email, typed Name, First/Last Seen, Submissions — your pending-approvals list |
-| `Configuration` | All dropdown lists — one **column** per list (header = name, values below). `Meter Status` (col A) drives the status dropdown; every other column auto-becomes an extra dropdown in the form + a dynamic month-tab column |
+| `Configuration` | All dropdown lists — one **column** per list (header = name, values below). `Meter Status` (col A) drives the status dropdown; every other column auto-becomes an extra dropdown in the form + a dynamic month-tab column. Exceptions — settings columns, **not** lists: `Form Settings` (col B) and the `Form Field` / `Optional / Compulsory` mandatory-field table |
 | `YYYY-MM` | One per month; 1 000 rows ready; ⚠ Checks column flags issues |
 | `Consolidated` | All months stacked live, newest first |
 | `Analytics` | Live pivots: entries per inspector/month/status, non-OK meters, feeder/DTC coverage + one pivot per Configuration list |

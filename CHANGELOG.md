@@ -31,6 +31,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Docs aligned with the mandatory-field table** (`README.md`,
+  `docs/requirements.md`, `apps-script/Index.html`): the README
+  `Configuration` row now lists the settings columns that are NOT dropdown
+  lists (`Form Settings` plus the `Form Field` / `Optional / Compulsory`
+  table), the spec's PF row no longer refers to the removed `Required
+  fields` setting, and a stale code comment is corrected. No behavior
+  change.
+
 - **Month tab capacity increased to 2000 rows** (`apps-script/Code.gs`):
   `CONFIG.prefillRows` raised from 1000 to 2000 so month tabs can hold
   twice as many pre-filled formula rows before hitting the 90% capacity
